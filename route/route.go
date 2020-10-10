@@ -24,6 +24,10 @@ func GetRoutes() *mux.Router {
 	routes.HandleFunc("/Game/{GameId}/Player/Create", controllers.PostPlayerCreateSql).Methods("POST")
 	routes.HandleFunc("/Game/{GameId}/Players/", controllers.GetAllPlayersSql).Methods("GET")
 
+	routes.HandleFunc("/Game/Player/{PlayerId}", controllers.GetPlayerByIdSql).Methods("GET")
+	routes.HandleFunc("/Game/Player/Create", controllers.PostPlayerCreateSql).Methods("POST")
+	routes.HandleFunc("/Game/Players/", controllers.GetAllPlayersSql).Methods("GET")
+
 	//Session routes
 	routes.HandleFunc("/Session/{SessionId}", controllers.GetSessionByIdSql).Methods("GET")
 	routes.HandleFunc("/Session/Create", controllers.PostSessionCreateSql).Methods("POST")

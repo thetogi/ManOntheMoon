@@ -3,9 +3,7 @@ package controllers
 import (
 	"ManOnTheMoonReviewService/db"
 	"ManOnTheMoonReviewService/util"
-	"database/sql"
 	"encoding/json"
-	"fmt"
 	"github.com/Pallinder/go-randomdata"
 	"github.com/gorilla/mux"
 	"github.com/rs/xid"
@@ -17,54 +15,16 @@ import (
 	"time"
 )
 
-//Game Structs
-type Game struct {
-	GameId  string
-	Name    string
-	Version float32
-}
-
-//Player Structs
-type Player struct {
-	PlayerId       string
-	Name           string
-	TimeRegistered time.Time
-}
-
 type Players struct {
-	Data []Player
-}
-
-//Session Structs
-type Session struct {
-	SessionId      string
-	PlayerId       string
-	GameId         string
-	TimeSessionEnd time.Time
+	Data []db.Player
 }
 
 type Sessions struct {
-	Data []Session
-}
-
-type SessionRatingData struct {
-	PlayerId      string
-	Session       string
-	Rating        int
-	Comment       string
-	DateSubmitted time.Time
-}
-
-//Session Rating Structs
-type SessionRating struct {
-	SessionId     string
-	Rating        int
-	Comment       string
-	TimeSubmitted time.Time
+	Data []db.Session
 }
 
 type SessionRatings struct {
-	Data []SessionRating
+	Data []db.SessionRating
 }
 
 //Http Response Structs
@@ -81,6 +41,16 @@ type ResponsePost struct {
 type ResponseGet struct {
 	Status  string
 	Message string
+}
+
+func sendResponseAsJson(w http.ResponseWriter, data interface{}) {
+	responsePost, err := json.Marshal(data)
+	if err != nil {
+		panic(err)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(responsePost)
 }
 
 func ShowEnvToggle(w http.ResponseWriter, req *http.Request) {
@@ -139,48 +109,21 @@ func Home(w http.ResponseWriter, req *http.Request) {
 	//}
 }
 
-func PostNewReview(w http.ResponseWriter, req *http.Request) {
-	err := req.ParseForm()
-	if err != nil {
-		panic(err)
-	}
-
-	//playerID, _ := strconv.Atoi(req.PostFormValue("playerID"))
-	//session, _ := strconv.Atoi(req.PostFormValue("session"))
-	//SessionRating, _ := strconv.Atoi(req.PostFormValue("rating"))
-	//SessionRatingComment := req.PostFormValue("comment")
-
-	// Commit to database
-
-	//Return message
-	//data := SessionRatingData{PlayerId:playerID, Session: session, Rating: SessionRating, Comment: SessionRatingComment}
-	responseData := ResponsePostSessionRating{Status: "200", Message: "Success"}
-	sessionRatingJson, err := json.Marshal(responseData)
-	if err != nil {
-		panic(err)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(sessionRatingJson)
-}
-
 func GetRatingRandom(w http.ResponseWriter, req *http.Request) {
 
 	playerID := xid.New().String()
 	session := xid.New().String()
 	rand.Seed(time.Now().UnixNano())
-	SessionRating := 1 + rand.Intn(5-1+1)
-	SessionRatingComment := "hello world"
-	DateSubmitted := time.Now()
-	data := SessionRatingData{PlayerId: playerID, Session: session, Rating: SessionRating, Comment: SessionRatingComment, DateSubmitted: DateSubmitted}
+	sessionRating := 1 + rand.Intn(5-1+1)
+	sessionRatingComment := randomdata.Paragraph()
 
-	sessionRatingJson, err := json.Marshal(data)
-	if err != nil {
-		panic(err)
+	if len(sessionRatingComment) > 511 {
+		sessionRatingComment = sessionRatingComment[0:511]
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(sessionRatingJson)
+	TimeSubmitted := time.Now()
+	data := db.SessionRating{PlayerId: playerID, SessionId: session, Rating: sessionRating, Comment: sessionRatingComment, TimeSubmitted: TimeSubmitted}
+
+	sendResponseAsJson(w, data)
 }
 
 func PostGameCreateSql(w http.ResponseWriter, req *http.Request) {
@@ -199,66 +142,56 @@ func PostGameCreateSql(w http.ResponseWriter, req *http.Request) {
 
 	data := ResponsePost{Status: "OK", Message: "New GAme Successfully created. ID: " + gameId}
 
-	ResponsePost, err := json.Marshal(data)
-	if err != nil {
-		panic(err)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(ResponsePost)
-
+	sendResponseAsJson(w, data)
 }
 
+//Finds and returns data about a Game by GameId
 func GetGameByIdSql(w http.ResponseWriter, req *http.Request) {
 
 	params := mux.Vars(req)
 	gameId := params["GameId"]
 
-	sqlStatement := "SELECT g.GameId, g.Name, g.Version FROM games g WHERE g.GameID = ?"
-	var Game Game
-	row := db.Db.QueryRow(sqlStatement, gameId)
-	switch err := row.Scan(&Game.GameId, &Game.Name, &Game.Version); err {
-	case sql.ErrNoRows:
-		fmt.Println("No rows were returned!")
-	case nil:
-		fmt.Println(Game.GameId, Game.Name, Game.Version)
-	default:
-		panic(err)
+	//Check for blank data
+	if gameId == "" {
+		//TODO Throw Error
 	}
 
-	ResponsePost, err := json.Marshal(Game)
-	if err != nil {
-		panic(err)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(ResponsePost)
+	//Retrieve game data
+	gameData := db.SelectGameById(gameId)
+
+	//Return game data as a JSON response
+	sendResponseAsJson(w, gameData)
 }
 
 func PostPlayerCreateSql(w http.ResponseWriter, req *http.Request) {
 
+	//Generate new PlayerId
 	playerID := xid.New().String()
+
+	//Generate random Player name
 	playerName := randomdata.FullName(randomdata.RandomGender)
+
+	//Track Player being registered as current date and time
 	PlayerTimeRegistered := time.Now()
-	sqlStatement := "INSERT INTO players (`PlayerId`,`Name`,`TimeRegistered`) VALUES ( ?, ?, ?)"
-	insert, err := db.Db.Query(sqlStatement, playerID, playerName, PlayerTimeRegistered)
 
-	// if there is an error inserting, handle it
-	if err != nil {
-		panic(err.Error())
-	}
-	defer insert.Close()
+	//Insert new Player into database
+	ok, err := db.InsertNewPlayer(playerID, playerName, PlayerTimeRegistered)
 
-	data := ResponsePost{Status: "OK", Message: "New Player Successfully created. ID: " + playerID}
-
-	ResponsePost, err := json.Marshal(data)
 	if err != nil {
 		panic(err)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(ResponsePost)
 
+	//Build response based on successful player insert
+	var responseData ResponsePost
+
+	if ok == true {
+		responseData = ResponsePost{Status: "OK", Message: "New Player Successfully created. ID: " + playerID}
+	} else {
+		responseData = ResponsePost{Status: "FAILED", Message: "New Player was not created. ID: " + playerID}
+	}
+
+	//Send response as JSON
+	sendResponseAsJson(w, responseData)
 }
 
 func GetPlayerByIdSql(w http.ResponseWriter, req *http.Request) {
@@ -266,238 +199,123 @@ func GetPlayerByIdSql(w http.ResponseWriter, req *http.Request) {
 	params := mux.Vars(req)
 	playerId := params["PlayerId"]
 
-	sqlStatement := "SELECT p.PlayerId, p.Name, p.TimeRegistered FROM players p WHERE p.PlayerID = ?"
-	var PlayerData Player
-	row := db.Db.QueryRow(sqlStatement, playerId)
-	switch err := row.Scan(&PlayerData.PlayerId, &PlayerData.Name, &PlayerData.TimeRegistered); err {
-	case sql.ErrNoRows:
-		fmt.Println("No rows were returned!")
-	case nil:
-		fmt.Println(PlayerData.PlayerId, PlayerData.Name, PlayerData.TimeRegistered)
-	default:
-		panic(err)
+	//Check for blank data
+	if playerId == "" {
+		//TODO Throw Error
 	}
 
-	ResponsePost, err := json.Marshal(PlayerData)
-	if err != nil {
-		panic(err)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(ResponsePost)
+	//Retrieve player data
+	playerData := db.SelectPlayerByPlayerId(playerId)
+
+	//Return player data as a JSON response
+	sendResponseAsJson(w, playerData)
 }
 
 func GetAllPlayersSql(w http.ResponseWriter, req *http.Request) {
-	var Players Players
-	sqlStatement := "SELECT p.PlayerId, p.Name, p.TimeRegistered FROM players p"
-	var PlayerData Player
-	rows, err := db.Db.Query(sqlStatement)
 
-	defer rows.Close()
-	if err != nil {
-		panic(err)
-	}
-	for rows.Next() {
-		switch err := rows.Scan(&PlayerData.PlayerId, &PlayerData.Name, &PlayerData.TimeRegistered); err {
-		case sql.ErrNoRows:
-			fmt.Println("No rows were returned!")
-		case nil:
-			Players.Data = append(Players.Data, Player{PlayerData.PlayerId, PlayerData.Name, PlayerData.TimeRegistered})
-			fmt.Println(PlayerData.PlayerId, PlayerData.Name, PlayerData.TimeRegistered)
-		default:
-			panic(err)
-		}
-		// get any error encountered during iteration
-		err = rows.Err()
-	}
-	ResponseGet, err := json.Marshal(Players.Data)
-	if err != nil {
-		panic(err)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(ResponseGet)
+	//Retrieve all players from table
+	playersData := db.SelectAllPlayers()
+
+	//Return players data as a JSON response
+	sendResponseAsJson(w, playersData)
 }
 
 func PostSessionCreateSql(w http.ResponseWriter, req *http.Request) {
+
+	//Generate new session id
 	sessionId := xid.New().String()
+
+	//Get parameters from URL query
 	playerID := req.URL.Query().Get("PlayerId")
 	gameId := req.URL.Query().Get("GameId")
 	timeSessionEnd, _ := time.Parse(time.RFC822, req.URL.Query().Get("TimeSessionEnd"))
-	sqlStatement := "INSERT INTO Sessions (`SessionId`,`GameId`,`PlayerId`,`TimeSessionEnd`) VALUES ( ?, ?, ?,?)"
-	insert, err := db.Db.Query(sqlStatement, sessionId, gameId, playerID, timeSessionEnd)
+
+	//Insert new Player into database
+	ok, err := db.InsertNewSession(sessionId, gameId, playerID, timeSessionEnd)
 
 	// if there is an error inserting, handle it
 	if err != nil {
 		panic(err.Error())
 	}
-	defer insert.Close()
+	//Build response based on successful player insert
+	var responseData ResponsePost
 
-	data := ResponsePost{Status: "OK", Message: "New Session Successfully created. ID: " + sessionId}
-
-	ResponsePost, err := json.Marshal(data)
-	if err != nil {
-		panic(err)
+	if ok == true {
+		responseData = ResponsePost{Status: "OK", Message: "New Session Successfully created. ID: " + sessionId}
+	} else {
+		responseData = ResponsePost{Status: "FAILED", Message: "Unable to create new session. ID: " + sessionId}
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(ResponsePost)
 
+	sendResponseAsJson(w, responseData)
 }
 
 func GetSessionByIdSql(w http.ResponseWriter, req *http.Request) {
 
 	params := mux.Vars(req)
-	playerId := params["SessionId"]
+	sessionId := params["SessionId"]
 
-	sqlStatement := "SELECT s.SessionId, s.PlayerId, s.GameId, s.TimeSessionEnd FROM Sessions s WHERE s.SessionId = ?"
-	var Session Session
-	row := db.Db.QueryRow(sqlStatement, playerId)
-	switch err := row.Scan(&Session.SessionId, &Session.PlayerId, &Session.GameId, &Session.TimeSessionEnd); err {
-	case sql.ErrNoRows:
-		fmt.Println("No rows were returned!")
-	case nil:
-		fmt.Println(Session.SessionId, Session.PlayerId, Session.GameId, Session.TimeSessionEnd)
-	default:
-		panic(err)
-	}
+	sessionData := db.SelectSessionbyId(sessionId)
 
-	ResponsePost, err := json.Marshal(Session)
-	if err != nil {
-		panic(err)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(ResponsePost)
+	sendResponseAsJson(w, sessionData)
 }
 
 func GetAllSessionsSql(w http.ResponseWriter, req *http.Request) {
-	var Sessions Sessions
-	sqlStatement := "SELECT s.SessionId, s.PlayerId, s.GameId, s.TimeSessionEnd FROM Sessions s"
-	var SingleSession Session
-	rows, err := db.Db.Query(sqlStatement)
 
-	defer rows.Close()
-	if err != nil {
-		panic(err)
-	}
-	for rows.Next() {
-		switch err := rows.Scan(&SingleSession.SessionId, &SingleSession.PlayerId, &SingleSession.GameId, &SingleSession.TimeSessionEnd); err {
-		case sql.ErrNoRows:
-			fmt.Println("No rows were returned!")
-		case nil:
-			Sessions.Data = append(Sessions.Data, Session{SingleSession.SessionId, SingleSession.PlayerId, SingleSession.GameId, SingleSession.TimeSessionEnd})
-			fmt.Println(SingleSession.SessionId, SingleSession.PlayerId, SingleSession.GameId, SingleSession.TimeSessionEnd)
-		default:
-			panic(err)
-		}
-		// get any error encountered during iteration
-		err = rows.Err()
-	}
-	ResponseGet, err := json.Marshal(Sessions.Data)
-	if err != nil {
-		panic(err)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(ResponseGet)
+	sessionsData := db.SelectAllSessions()
+	sendResponseAsJson(w, sessionsData)
 }
 
 func PostSessionRatingCreateSql(w http.ResponseWriter, req *http.Request) {
+	//Get SessionId from parameter string
 	params := mux.Vars(req)
 	sessionId := params["SessionId"]
+	playerId := params["PlayerId"]
+
+	//Check and prevent player from submitting another rating for the session if one exists
+
 	req.ParseForm()
 	rating, _ := strconv.Atoi(req.FormValue("Rating"))
 	comment := req.Form.Get("Comment")
 	timeSubmitted := time.Now()
-	sqlStatement := "INSERT INTO SessionRatings (`SessionId`,`Rating`,`Comment`, `TimeSubmitted`) VALUES ( ?, ?, ?,?)"
-	insert, err := db.Db.Query(sqlStatement, sessionId, rating, comment, timeSubmitted)
 
-	// if there is an error inserting, handle it
-	if err != nil {
-		panic(err.Error())
-	}
-	defer insert.Close()
+	//Insert new Player into database
+	ok, err := db.InsertNewSessionRating(sessionId, playerId, rating, comment, timeSubmitted)
 
-	data := ResponsePost{Status: "OK", Message: "New Rating Successfully submitted for Session ID: " + sessionId + " rating: " + strconv.Itoa(rating) + comment}
-
-	ResponsePost, err := json.Marshal(data)
 	if err != nil {
 		panic(err)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(ResponsePost)
 
+	//Build response based on successful player insert
+	var responseData ResponsePost
+
+	if ok == true {
+		responseData = ResponsePost{Status: "OK", Message: "Rating Successfully submitted for Session ID: " + sessionId + " rating: " + strconv.Itoa(rating) + comment}
+	} else {
+		responseData = ResponsePost{Status: "FAILED", Message: "Rating was unable to be submitted for Session ID: " + sessionId + " rating: " + strconv.Itoa(rating) + comment}
+	}
+
+	//Send response as JSON
+	sendResponseAsJson(w, responseData)
 }
 
 func GetSessionRatingBySessionIdSql(w http.ResponseWriter, req *http.Request) {
 
 	params := mux.Vars(req)
 	sessionId := params["SessionId"]
+	playerId := params["PlayerId"]
 
-	sqlStatement := "SELECT sr.SessionId, sr.Rating, sr.Comment, sr.TimeSubmitted FROM SessionRatings sr WHERE sr.SessionId = ?"
-	var SessionRatingData SessionRating
-	row := db.Db.QueryRow(sqlStatement, sessionId)
-	switch err := row.Scan(&SessionRatingData.SessionId, &SessionRatingData.Rating, &SessionRatingData.Comment, &SessionRatingData.TimeSubmitted); err {
-	case sql.ErrNoRows:
-		fmt.Println("No rows were returned!")
-	case nil:
-		fmt.Println(SessionRatingData.SessionId, SessionRatingData.Rating, SessionRatingData.Comment, SessionRatingData.TimeSubmitted)
-	default:
-		panic(err)
-	}
+	sessionRatingData := db.SelectSessionRatingBySessionId(sessionId, playerId)
 
-	ResponsePost, err := json.Marshal(SessionRatingData)
-	if err != nil {
-		panic(err)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(ResponsePost)
+	sendResponseAsJson(w, sessionRatingData)
 }
 
 func GetAllSessionRatingsSql(w http.ResponseWriter, req *http.Request) {
-
-	ratingFilter := req.URL.Query().Get("Rating")
+	rating, _ := strconv.Atoi(req.URL.Query().Get("Rating"))
+	//TODO handle parsing errors
+	ratingFilter := req.URL.Query().Get("Filter")
 
 	//ratingFilterOp := req.URL.Query().Get("Op")
 
-	var SessionRatings SessionRatings
-
-	var sqlStatement string
-
-	if ratingFilter != "" {
-		sqlStatement = "SELECT sr.SessionId, sr.Rating, sr.Comment, sr.TimeSubmitted FROM SessionRatings sr WHERE sr.Rating = ?"
-	} else {
-		sqlStatement = "SELECT sr.SessionId, sr.Rating, sr.Comment, sr.TimeSubmitted FROM SessionRatings sr"
-	}
-
-	var SingleRating SessionRating
-	rows, err := db.Db.Query(sqlStatement)
-
-	defer rows.Close()
-	if err != nil {
-		panic(err)
-	}
-	for rows.Next() {
-		switch err := rows.Scan(&SingleRating.SessionId, &SingleRating.Rating, &SingleRating.Comment, &SingleRating.TimeSubmitted); err {
-		case sql.ErrNoRows:
-			fmt.Println("No rows were returned!")
-		case nil:
-			SessionRatings.Data = append(SessionRatings.Data, SessionRating{SingleRating.SessionId, SingleRating.Rating, SingleRating.Comment, SingleRating.TimeSubmitted})
-			fmt.Println(SingleRating.SessionId, SingleRating.Rating, SingleRating.Comment, SingleRating.TimeSubmitted)
-		default:
-			panic(err)
-		}
-		// get any error encountered during iteration
-		err = rows.Err()
-	}
-	ResponseGet, err := json.Marshal(SessionRatings.Data)
-	if err != nil {
-		panic(err)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(ResponseGet)
+	sessionRatings := db.SelectAllSessionRatings(rating, ratingFilter)
+	sendResponseAsJson(w, sessionRatings)
 }
