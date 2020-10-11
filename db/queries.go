@@ -1,5 +1,8 @@
 package db
 
+//This file contains all the database queries that are used in the service
+//the database/sql library and driver will sanitize inputs using parameterized queries to prevent SQL injection.
+
 import (
 	"fmt"
 
@@ -9,32 +12,6 @@ import (
 )
 
 //*****Select Queries*******//
-
-//Retrieve game information for a single game
-func SelectGameById(gameId string) Game {
-	fmt.Println("Executing SELECT: SelectGameById")
-
-	sqlStatement := "SELECT g.GameId, g.Name, g.Version FROM games g WHERE g.GameID = ?"
-
-	stmt, err := Db.Prepare(sqlStatement)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	var Game Game
-	switch err := stmt.QueryRow(gameId).Scan(&Game.GameId, &Game.Name, &Game.Version); err {
-	case sql.ErrNoRows:
-		fmt.Println("No game was found!, GameId: " + gameId)
-	case nil:
-		fmt.Println(Game.GameId, Game.Name, Game.Version)
-	default:
-		panic(err)
-	}
-
-	defer stmt.Close()
-
-	return Game
-}
 
 func SelectPlayerByPlayerId(playerId string) Player {
 	fmt.Println("Executing SELECT: GetPlayerByPlayerId")
@@ -95,7 +72,7 @@ func SelectSessionbyId(sessionId string) Session {
 
 	fmt.Println("Executing SELECT: SelectSessionById")
 
-	sqlStatement := "SELECT s.SessionId, s.PlayerId, s.GameId, s.TimeSessionEnd FROM Sessions s WHERE s.SessionId = ?"
+	sqlStatement := "SELECT s.SessionId, s.PlayerId, s.TimeSessionEnd FROM Sessions s WHERE s.SessionId = ?"
 
 	stmt, err := Db.Prepare(sqlStatement)
 	if err != nil {
@@ -103,11 +80,11 @@ func SelectSessionbyId(sessionId string) Session {
 	}
 
 	var Session Session
-	switch err := stmt.QueryRow(sessionId).Scan(&Session.SessionId, &Session.PlayerId, &Session.GameId, &Session.TimeSessionEnd); err {
+	switch err := stmt.QueryRow(sessionId).Scan(&Session.SessionId, &Session.PlayerId, &Session.TimeSessionEnd); err {
 	case sql.ErrNoRows:
 		fmt.Println("No session was found!, SessionId: " + sessionId)
 	case nil:
-		fmt.Println(Session.SessionId, Session.PlayerId, Session.GameId, Session.TimeSessionEnd)
+		fmt.Println(Session.SessionId, Session.PlayerId, Session.TimeSessionEnd)
 	default:
 		panic(err)
 	}
@@ -119,7 +96,7 @@ func SelectSessionbyId(sessionId string) Session {
 
 func SelectAllSessions() []Session {
 	fmt.Println("Executing SELECT: SelectAllSessions")
-	sqlStatement := "SELECT s.SessionId, s.PlayerId, s.GameId, s.TimeSessionEnd FROM Sessions s"
+	sqlStatement := "SELECT s.SessionId, s.PlayerId, s.TimeSessionEnd FROM Sessions s"
 
 	rows, err := Db.Query(sqlStatement)
 	if err != nil {
@@ -131,12 +108,12 @@ func SelectAllSessions() []Session {
 	var Sessions []Session
 	var SingleSession Session
 	for rows.Next() {
-		switch err := rows.Scan(&SingleSession.SessionId, &SingleSession.PlayerId, &SingleSession.GameId, &SingleSession.TimeSessionEnd); err {
+		switch err := rows.Scan(&SingleSession.SessionId, &SingleSession.PlayerId, &SingleSession.TimeSessionEnd); err {
 		case sql.ErrNoRows:
 			fmt.Println("No rows were returned!")
 		case nil:
-			Sessions = append(Sessions, Session{SingleSession.SessionId, SingleSession.PlayerId, SingleSession.GameId, SingleSession.TimeSessionEnd})
-			fmt.Println(SingleSession.SessionId, SingleSession.PlayerId, SingleSession.GameId, SingleSession.TimeSessionEnd)
+			Sessions = append(Sessions, Session{SingleSession.SessionId, SingleSession.PlayerId, SingleSession.TimeSessionEnd})
+			fmt.Println(SingleSession.SessionId, SingleSession.PlayerId, SingleSession.TimeSessionEnd)
 		default:
 			panic(err)
 		}
@@ -146,10 +123,10 @@ func SelectAllSessions() []Session {
 	return Sessions
 }
 
-func SelectSessionRatingBySessionId(sessionId string, playerId string) SessionRating {
-	fmt.Println("Executing SELECT: SelectSessionRatingBySessionId")
+func SelectSessionRating(sessionId string, playerId string) SessionRating {
+	fmt.Println("Executing SELECT: SelectSessionRating")
 
-	sqlStatement := "SELECT sr.SessionId, sr.Rating, sr.Comment, sr.TimeSubmitted FROM SessionRatings sr WHERE sr.SessionId = ?"
+	sqlStatement := "SELECT sr.SessionId, sr.PlayerId, sr.Rating, sr.Comment, sr.TimeSubmitted FROM SessionRatings sr WHERE sr.SessionId = ? AND sr.PlayerId = ?"
 
 	stmt, err := Db.Prepare(sqlStatement)
 	if err != nil {
@@ -157,7 +134,7 @@ func SelectSessionRatingBySessionId(sessionId string, playerId string) SessionRa
 	}
 
 	var sessionRatingData SessionRating
-	switch err := stmt.QueryRow(sessionId, playerId).Scan(&sessionRatingData.SessionId, &sessionRatingData.Rating, &sessionRatingData.Comment, &sessionRatingData.TimeSubmitted); err {
+	switch err := stmt.QueryRow(sessionId, playerId).Scan(&sessionRatingData.SessionId, &sessionRatingData.PlayerId, &sessionRatingData.Rating, &sessionRatingData.Comment, &sessionRatingData.TimeSubmitted); err {
 	case sql.ErrNoRows:
 		fmt.Println("No session rating was found!, SessionId: " + sessionId + " PlayerId: " + playerId)
 	case nil:
@@ -171,18 +148,43 @@ func SelectSessionRatingBySessionId(sessionId string, playerId string) SessionRa
 	return sessionRatingData
 }
 
-func SelectAllSessionRatings(rating int, ratingFilter string) []SessionRating {
+func SelectAllSessionRatings(rating int, ratingFilterOp string, recentFlag bool) []SessionRating {
 	fmt.Println("Executing SELECT: SelectAllSessionRatings")
 	var SessionRatings []SessionRating
 
+	var limitPart string
 	var sqlStatement string
+	var filterPart string
+
 	var rows *sql.Rows
 	var err error
-	if ratingFilter != "" {
-		sqlStatement = "SELECT sr.SessionId, sr.PlayerId, sr.Rating, sr.Comment, sr.TimeSubmitted FROM SessionRatings sr WHERE sr.Rating = ?"
+
+	//Check for returning only recent reviews and build Select clause
+	if recentFlag {
+		limitPart = "Limit 20"
+	}
+
+	//Check for rating filter and build the filter clause
+	if ratingFilterOp != "" {
+		switch ratingFilterOp {
+		case ">":
+			filterPart = "WHERE sr.Rating > ?"
+		case ">=":
+			filterPart = "WHERE sr.Rating >= ?"
+		case "<":
+			filterPart = "WHERE sr.Rating < ?"
+		case "<=":
+			filterPart = "WHERE sr.Rating <= ?"
+		}
+		//Combine parts to build SQL statement
+		sqlStatement = "SELECT sr.SessionId, sr.PlayerId, sr.Rating, sr.Comment, sr.TimeSubmitted FROM SessionRatings sr " + filterPart + " ORDER BY sr.TimeSubmitted DESC " + limitPart
+		rows, err = Db.Query(sqlStatement, rating)
+	} else if rating != 0 {
+		//Combine parts to build SQL statement
+		sqlStatement = "SELECT sr.SessionId, sr.PlayerId, sr.Rating, sr.Comment, sr.TimeSubmitted FROM SessionRatings sr WHERE sr.Rating = ? ORDER BY sr.TimeSubmitted DESC " + limitPart
 		rows, err = Db.Query(sqlStatement, rating)
 	} else {
-		sqlStatement = "SELECT sr.SessionId, sr.PlayerId, sr.Rating, sr.Comment, sr.TimeSubmitted FROM SessionRatings sr"
+		sqlStatement = "SELECT sr.SessionId, sr.PlayerId, sr.Rating, sr.Comment, sr.TimeSubmitted FROM SessionRatings sr ORDER BY sr.TimeSubmitted DESC " + limitPart
 		rows, err = Db.Query(sqlStatement)
 	}
 
@@ -213,43 +215,63 @@ func SelectAllSessionRatings(rating int, ratingFilter string) []SessionRating {
 
 func InsertNewPlayer(playerId string, playerName string, TimeRegistered time.Time) (bool, error) {
 	fmt.Println("Executing INSERT: InsertNewPlayer")
+
 	sqlStatement := "INSERT INTO players (`PlayerId`,`Name`,`TimeRegistered`) VALUES (?,?,?)"
-	insert, err := Db.Query(sqlStatement, playerId, playerName, TimeRegistered)
+
+	stmt, err := Db.Prepare(sqlStatement)
+	if err != nil {
+		return false, err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(playerId, playerName, TimeRegistered)
 
 	// if there is an error inserting, handle it
 	if err != nil {
 		return false, err
 	}
-	defer insert.Close()
 
 	return true, err
 }
 
-func InsertNewSession(sessionId string, gameId string, playerId string, timeSessionEnd time.Time) (bool, error) {
+func InsertNewSession(sessionId string, playerId string, timeSessionEnd time.Time) (bool, error) {
 	fmt.Println("Executing INSERT: InsertNewSession")
-	sqlStatement := "INSERT INTO Sessions (`SessionId`,`GameId`,`PlayerId`,`TimeSessionEnd`) VALUES (?,?,?,?)"
-	insert, err := Db.Query(sqlStatement, sessionId, gameId, playerId, timeSessionEnd)
+
+	sqlStatement := "INSERT INTO Sessions (`SessionId`,`PlayerId`,`TimeSessionEnd`) VALUES (?,?,?)"
+
+	stmt, err := Db.Prepare(sqlStatement)
+	if err != nil {
+		return false, err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(sessionId, playerId, timeSessionEnd)
 
 	// if there is an error inserting, handle it
 	if err != nil {
 		return false, err
 	}
-	defer insert.Close()
 
 	return true, err
-
 }
 
 func InsertNewSessionRating(sessionId string, playerId string, rating int, comment string, timeSubmitted time.Time) (bool, error) {
 	fmt.Println("Executing INSERT: InsertNewSessionRating")
+
 	sqlStatement := "INSERT INTO SessionRatings (`SessionId`,`PlayerId`,`Rating`,`Comment`, `TimeSubmitted`) VALUES ( ?,?,?,?,?)"
-	insert, err := Db.Query(sqlStatement, sessionId, playerId, rating, comment, timeSubmitted)
+
+	stmt, err := Db.Prepare(sqlStatement)
+	if err != nil {
+		return false, err
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(sessionId, playerId, rating, comment, timeSubmitted)
 
 	// if there is an error inserting, handle it
 	if err != nil {
 		return false, err
 	}
-	defer insert.Close()
 
 	return true, err
 }

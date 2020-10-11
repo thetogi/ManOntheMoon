@@ -1,81 +1,41 @@
 package controllers
 
+//Contains the methods that will handle the registered routes
+
 import (
 	"ManOnTheMoonReviewService/db"
-	"ManOnTheMoonReviewService/util"
 	"encoding/json"
 	"github.com/Pallinder/go-randomdata"
 	"github.com/gorilla/mux"
 	"github.com/rs/xid"
-	"html/template"
-	"log"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 )
 
-type Players struct {
-	Data []db.Player
-}
+//Response contains HTTP response data
+type Response struct {
+	//Status indicates if a given request has succeeded, failed, etc.
+	Status string
 
-type Sessions struct {
-	Data []db.Session
-}
-
-type SessionRatings struct {
-	Data []db.SessionRating
-}
-
-//Http Response Structs
-type ResponsePostSessionRating struct {
-	Status  string
+	//Message contains information regarding the outcome of a request
 	Message string
 }
 
-type ResponsePost struct {
-	Status  string
-	Message string
-}
-
-type ResponseGet struct {
-	Status  string
-	Message string
-}
-
-func sendResponseAsJson(w http.ResponseWriter, data interface{}) {
-	responsePost, err := json.Marshal(data)
+//sendResponseAsJson returns a successful http status and provides response data as a JSON object
+func sendResponseAsJson(w http.ResponseWriter, responseData interface{}) {
+	responseJson, err := json.Marshal(responseData)
 	if err != nil {
 		panic(err)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write(responsePost)
+	w.Write(responseJson)
 }
 
-func ShowEnvToggle(w http.ResponseWriter, req *http.Request) {
-
-	files := []string{
-		"./ui/html/envToggle.layout.tmpl",
-		"./ui/html/envToggle.partial.tmpl",
-	}
-	ts, err := template.ParseFiles(files...)
-	if err != nil {
-		log.Printf(err.Error())
-		http.Error(w, "Internal Server Error", 500)
-
-	}
-	if util.EnvShowStatus() == false {
-		util.ToggleEnvShow()
-	}
-
-	err = ts.Execute(w, util.EnvData())
-	if err != nil {
-		log.Printf(err.Error())
-		http.Error(w, "Internal Server Error", 500)
-	}
-
-}
+//*****GET Handlers*****//
 
 func Home(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Path != "/" {
@@ -83,85 +43,194 @@ func Home(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte("Not Found !!!"))
 		return
 	}
-	newSessionId := xid.New()
-	//Store session ID in DB
-
-	// Redirect to new session
-	http.Redirect(w, req, "http://localhost:8080/GameSession/"+newSessionId.String(), http.StatusSeeOther)
-
-	return
-	//files := []string{
-	//	"./ui/html/home.page.tmpl",
-	//	"./ui/html/base.layout.tmpl",
-	//	"./ui/html/footer.partial.tmpl",
-	//}
-	//ts, err := template.ParseFiles(files...)
-	//if err != nil {
-	//	log.Printf(err.Error())
-	//	http.Error(w, "Internal Server Error", 500)
-	//
-	//}
-	//
-	//err = ts.Execute(w, util.EnvData())
-	//if err != nil {
-	//	log.Printf(err.Error())
-	//	http.Error(w, "Internal Server Error", 500)
-	//}
+	sendResponseAsJson(w, "Welcome to Man on the Moon homepage!")
 }
 
-func GetRatingRandom(w http.ResponseWriter, req *http.Request) {
+func HealthCheck(w http.ResponseWriter, req *http.Request) {
+	requestStartRaw := req.Header.Get("date")
+	requestStart, _ := time.Parse(time.RFC1123, requestStartRaw)
+	diff := time.Now().Sub(requestStart)
+	diffString := strconv.FormatInt(diff.Milliseconds(), 10)
+	sendResponseAsJson(w, "Man on the Moon Game Session Review service is running normally. Response time: "+diffString+" ms")
+	//TODO this is how I generated feedback in readMe
+}
 
-	playerID := xid.New().String()
-	session := xid.New().String()
+//GetRatingRandomForTesting Simulates returning a rating. Nothing is retrieved from or committed to database.
+func GetRatingRandomForTesting(w http.ResponseWriter, req *http.Request) {
+
+	//Generate random session rating data
+	sessionId := xid.New().String()
+	playerId := xid.New().String()
 	rand.Seed(time.Now().UnixNano())
 	sessionRating := 1 + rand.Intn(5-1+1)
 	sessionRatingComment := randomdata.Paragraph()
 
+	//Trim random comment data to be less than 512 as that is the limit of the db comment field
 	if len(sessionRatingComment) > 511 {
 		sessionRatingComment = sessionRatingComment[0:511]
 	}
-	TimeSubmitted := time.Now()
-	data := db.SessionRating{PlayerId: playerID, SessionId: session, Rating: sessionRating, Comment: sessionRatingComment, TimeSubmitted: TimeSubmitted}
+
+	timeSubmitted := time.Now()
+	data := db.SessionRating{PlayerId: playerId, SessionId: sessionId, Rating: sessionRating, Comment: sessionRatingComment, TimeSubmitted: timeSubmitted}
 
 	sendResponseAsJson(w, data)
 }
 
-func PostGameCreateSql(w http.ResponseWriter, req *http.Request) {
+//GetPlayerByIdSql returns data of a single player by Id
+func GetPlayerByIdSql(w http.ResponseWriter, req *http.Request) {
 
-	gameId := xid.New().String()
-	gameName := "ManOnTheMoon"
-	gameVersion := "1.0"
-	sqlStatement := "INSERT INTO games (`GameId`,`Name`,`Version`) VALUES ( ?, ?, ?)"
-	insert, err := db.Db.Query(sqlStatement, gameId, gameName, gameVersion)
-
-	// if there is an error inserting, handle it
-	if err != nil {
-		panic(err.Error())
-	}
-	defer insert.Close()
-
-	data := ResponsePost{Status: "OK", Message: "New GAme Successfully created. ID: " + gameId}
-
-	sendResponseAsJson(w, data)
-}
-
-//Finds and returns data about a Game by GameId
-func GetGameByIdSql(w http.ResponseWriter, req *http.Request) {
-
+	//Get playerId from URL path
 	params := mux.Vars(req)
-	gameId := params["GameId"]
+	playerId := params["PlayerId"]
 
-	//Check for blank data
-	if gameId == "" {
-		//TODO Throw Error
+	//Retrieve player data by id
+	playerData := db.SelectPlayerByPlayerId(playerId)
+
+	//Check if player was retrieved and send response
+	if playerData.PlayerId == "" {
+		responseData := Response{Status: "PlayerNotFound", Message: "Could not find player using PlayerId: " + playerId}
+		sendResponseAsJson(w, responseData)
+	} else {
+		sendResponseAsJson(w, playerData)
+	}
+}
+
+//GetAllPlayersSql returns all players from the players table
+func GetAllPlayersSql(w http.ResponseWriter, req *http.Request) {
+
+	//Retrieve all players from players table
+	playersData := db.SelectAllPlayers()
+
+	//Check if players were found then return response
+	if len(playersData) == 0 {
+		responseData := Response{Status: "PlayersNotFound", Message: "No players could be found."}
+		sendResponseAsJson(w, responseData)
+	} else {
+		//Return players data as a JSON response
+		sendResponseAsJson(w, playersData)
+	}
+}
+
+//GetSessionByIdSql returns data of a player's session by session and player Id
+func GetSessionByIdSql(w http.ResponseWriter, req *http.Request) {
+
+	//Get sessionId from URL path
+	params := mux.Vars(req)
+	sessionId := params["SessionId"]
+
+	//Retrieve session data by Id
+	sessionData := db.SelectSessionbyId(sessionId)
+
+	//Check if session was retrieved and send response
+	if sessionData.SessionId == "" {
+		responseData := Response{Status: "SessionNotFound", Message: "Could not find session using SessionId: " + sessionId}
+		sendResponseAsJson(w, responseData)
+	} else {
+		sendResponseAsJson(w, sessionData)
+	}
+}
+
+//GetAllSessionsSql returns all sessions by players from the sessions table
+func GetAllSessionsSql(w http.ResponseWriter, req *http.Request) {
+
+	//Retrieve all sessions from sessions table
+	sessionsData := db.SelectAllSessions()
+	sendResponseAsJson(w, sessionsData)
+
+	//Check if sessions were found then return response
+	if len(sessionsData) == 0 {
+		responseData := Response{Status: "SessionsNotFound", Message: "No sessions could be found."}
+		sendResponseAsJson(w, responseData)
+	} else {
+		//Return players data as a JSON response
+		sendResponseAsJson(w, sessionsData)
+	}
+}
+
+//GetSessionRatingBySessionIdSql returns a player's session rating by their Ids
+func GetSessionRatingBySessionIdSql(w http.ResponseWriter, req *http.Request) {
+
+	//Get session from URL pathand player from URL path
+	params := mux.Vars(req)
+	sessionId := params["SessionId"]
+
+	//Get playerId from URL query parameters
+	playerId := req.URL.Query().Get("PlayerId")
+
+	//Session Rating by session and player
+	sessionRatingData := db.SelectSessionRating(sessionId, playerId)
+
+	//Check if session rating was retrieved and send response
+	if sessionRatingData.PlayerId == "" {
+		responseData := Response{Status: "SessionRatingNotFound", Message: "Could not find rating by player for session using PlayerId: " + playerId + "and SessionId " + sessionId}
+		sendResponseAsJson(w, responseData)
+	} else {
+		sendResponseAsJson(w, sessionRatingData)
+	}
+}
+
+//GetAllSessionRatingsSql returns all ratings by players for their sessions from the SessionRatings table. Optional filters can be provided for returning ratings.
+func GetAllSessionRatingsSql(w http.ResponseWriter, req *http.Request) {
+	//Get rating to filter by that value if provided
+	rating := req.URL.Query().Get("Rating")
+
+	//Get encoded rating filter operand if provided
+	ratingFilterEnc := req.URL.Query().Get("Filter")
+
+	//Get recent option if provided
+	recentFlag := req.URL.Query().Get("Recent")
+
+	//Validate recent flag
+	if recentFlag != "" && recentFlag != "0" && recentFlag != "1" {
+		responseData := Response{Status: "InvalidFlag", Message: "Recent parameter can only be a 0 or 1"}
+		sendResponseAsJson(w, responseData)
+		return
 	}
 
-	//Retrieve game data
-	gameData := db.SelectGameById(gameId)
+	//Validate rating filter
+	var ratingFilter string
+	var err error
+	if ratingFilterEnc != "" {
+		ratingFilter, err = url.QueryUnescape(ratingFilterEnc)
+		if err != nil {
+			responseData := Response{Status: "RatingFilterError", Message: err.Error()}
+			sendResponseAsJson(w, responseData)
+			return
+		}
+		switch ratingFilter {
+		case "<":
+		case ">":
+		case ">=":
+		case "<=":
+		default:
+			responseData := Response{Status: "InvalidRatingFilter", Message: "Incorrect rating filter provided. Rating filter must be one of the following: <,<=,>,>="}
+			sendResponseAsJson(w, responseData)
+			return
+		}
+	}
 
-	//Return game data as a JSON response
-	sendResponseAsJson(w, gameData)
+	if rating == "" && ratingFilter != "" {
+		responseData := Response{Status: "NoRatingProvided", Message: "Rating was not provided with Filter."}
+		sendResponseAsJson(w, responseData)
+	} else {
+
+		//Convert rating as int
+		ratingAsInt, _ := strconv.Atoi(rating)
+		recentFlagAsBool, _ := strconv.ParseBool(recentFlag)
+
+		sessionRatings := db.SelectAllSessionRatings(ratingAsInt, ratingFilter, recentFlagAsBool)
+
+		//Check if session ratings were found then return response
+		if len(sessionRatings) == 0 {
+			responseData := Response{Status: "NoRatings", Message: "No ratings were found."}
+			sendResponseAsJson(w, responseData)
+		} else {
+			sendResponseAsJson(w, sessionRatings)
+		}
+	}
 }
+
+//*****POST Handlers*****//
 
 func PostPlayerCreateSql(w http.ResponseWriter, req *http.Request) {
 
@@ -177,47 +246,21 @@ func PostPlayerCreateSql(w http.ResponseWriter, req *http.Request) {
 	//Insert new Player into database
 	ok, err := db.InsertNewPlayer(playerID, playerName, PlayerTimeRegistered)
 
+	//If there is an error inserting, handle it
 	if err != nil {
 		panic(err)
 	}
 
-	//Build response based on successful player insert
-	var responseData ResponsePost
-
+	//Check if insert was successful and send response
+	var responseData Response
 	if ok == true {
-		responseData = ResponsePost{Status: "OK", Message: "New Player Successfully created. ID: " + playerID}
+		responseData = Response{Status: "OK", Message: "New Player Successfully created. ID: " + playerID}
 	} else {
-		responseData = ResponsePost{Status: "FAILED", Message: "New Player was not created. ID: " + playerID}
+		responseData = Response{Status: "FAILED", Message: "New Player was not created. ID: " + playerID}
 	}
 
 	//Send response as JSON
 	sendResponseAsJson(w, responseData)
-}
-
-func GetPlayerByIdSql(w http.ResponseWriter, req *http.Request) {
-
-	params := mux.Vars(req)
-	playerId := params["PlayerId"]
-
-	//Check for blank data
-	if playerId == "" {
-		//TODO Throw Error
-	}
-
-	//Retrieve player data
-	playerData := db.SelectPlayerByPlayerId(playerId)
-
-	//Return player data as a JSON response
-	sendResponseAsJson(w, playerData)
-}
-
-func GetAllPlayersSql(w http.ResponseWriter, req *http.Request) {
-
-	//Retrieve all players from table
-	playersData := db.SelectAllPlayers()
-
-	//Return players data as a JSON response
-	sendResponseAsJson(w, playersData)
 }
 
 func PostSessionCreateSql(w http.ResponseWriter, req *http.Request) {
@@ -227,95 +270,72 @@ func PostSessionCreateSql(w http.ResponseWriter, req *http.Request) {
 
 	//Get parameters from URL query
 	playerID := req.URL.Query().Get("PlayerId")
-	gameId := req.URL.Query().Get("GameId")
 	timeSessionEnd, _ := time.Parse(time.RFC822, req.URL.Query().Get("TimeSessionEnd"))
 
 	//Insert new Player into database
-	ok, err := db.InsertNewSession(sessionId, gameId, playerID, timeSessionEnd)
+	ok, err := db.InsertNewSession(sessionId, playerID, timeSessionEnd)
 
-	// if there is an error inserting, handle it
+	//If there is an error inserting, handle it
 	if err != nil {
 		panic(err.Error())
 	}
-	//Build response based on successful player insert
-	var responseData ResponsePost
 
+	//Check if insert was successful and send response
+	var responseData Response
 	if ok == true {
-		responseData = ResponsePost{Status: "OK", Message: "New Session Successfully created. ID: " + sessionId}
+		responseData = Response{Status: "OK", Message: "New Session Successfully created. ID: " + sessionId}
 	} else {
-		responseData = ResponsePost{Status: "FAILED", Message: "Unable to create new session. ID: " + sessionId}
+		responseData = Response{Status: "FAILED", Message: "Unable to create new session. ID: " + sessionId}
 	}
 
 	sendResponseAsJson(w, responseData)
 }
 
-func GetSessionByIdSql(w http.ResponseWriter, req *http.Request) {
-
-	params := mux.Vars(req)
-	sessionId := params["SessionId"]
-
-	sessionData := db.SelectSessionbyId(sessionId)
-
-	sendResponseAsJson(w, sessionData)
-}
-
-func GetAllSessionsSql(w http.ResponseWriter, req *http.Request) {
-
-	sessionsData := db.SelectAllSessions()
-	sendResponseAsJson(w, sessionsData)
-}
-
 func PostSessionRatingCreateSql(w http.ResponseWriter, req *http.Request) {
+
 	//Get SessionId from parameter string
 	params := mux.Vars(req)
 	sessionId := params["SessionId"]
-	playerId := params["PlayerId"]
+	playerId := req.URL.Query().Get("PlayerId")
+	rating := req.URL.Query().Get("Rating")
+	comment := req.URL.Query().Get("Comment")
+	var responseData Response
 
-	//Check and prevent player from submitting another rating for the session if one exists
+	//Check and prevent player from submitting another rating for the session if one exists, otherwise insert new rating
+	currentRating := db.SelectSessionRating(sessionId, playerId)
+	if currentRating.IsEmpty() {
+		ratingInt, err := strconv.Atoi(rating)
+		if err != nil {
+			responseData = Response{Status: "FAILED_INVALID_RATING", Message: err.Error()}
+			sendResponseAsJson(w, responseData)
+			return
+		}
 
-	req.ParseForm()
-	rating, _ := strconv.Atoi(req.FormValue("Rating"))
-	comment := req.Form.Get("Comment")
-	timeSubmitted := time.Now()
+		if ratingInt < 1 || ratingInt > 5 {
+			responseData = Response{Status: "FAILED_INVALID_RATING_QTY", Message: "Rating submitted is not valid. Ratings must be between 1 and 5."}
+			sendResponseAsJson(w, responseData)
+			return
+		}
 
-	//Insert new Player into database
-	ok, err := db.InsertNewSessionRating(sessionId, playerId, rating, comment, timeSubmitted)
+		timeSubmitted := time.Now()
 
-	if err != nil {
-		panic(err)
-	}
+		//Insert new Player into database
+		ok, err := db.InsertNewSessionRating(sessionId, playerId, ratingInt, comment, timeSubmitted)
 
-	//Build response based on successful player insert
-	var responseData ResponsePost
+		if err != nil {
+			panic(err)
+		}
 
-	if ok == true {
-		responseData = ResponsePost{Status: "OK", Message: "Rating Successfully submitted for Session ID: " + sessionId + " rating: " + strconv.Itoa(rating) + comment}
+		//Check if insert was successful and send response
+		if ok == true {
+			responseData = Response{Status: "OK", Message: "Rating Successfully submitted for Session ID: " + sessionId + " rating: " + rating + comment}
+		} else {
+			responseData = Response{Status: "FAILED", Message: "Rating was unable to be submitted for Session ID: " + sessionId + " rating: " + rating + comment}
+		}
 	} else {
-		responseData = ResponsePost{Status: "FAILED", Message: "Rating was unable to be submitted for Session ID: " + sessionId + " rating: " + strconv.Itoa(rating) + comment}
+		responseData = Response{Status: "FAILED_DUPLICATE", Message: "Player has already submitted a rating for the session. Cannot submit more than one rating for a session. Session: " + sessionId + " Player: " + playerId + " rating: " + strconv.Itoa(currentRating.Rating) + " Comment: " + currentRating.Comment}
 	}
 
 	//Send response as JSON
 	sendResponseAsJson(w, responseData)
-}
-
-func GetSessionRatingBySessionIdSql(w http.ResponseWriter, req *http.Request) {
-
-	params := mux.Vars(req)
-	sessionId := params["SessionId"]
-	playerId := params["PlayerId"]
-
-	sessionRatingData := db.SelectSessionRatingBySessionId(sessionId, playerId)
-
-	sendResponseAsJson(w, sessionRatingData)
-}
-
-func GetAllSessionRatingsSql(w http.ResponseWriter, req *http.Request) {
-	rating, _ := strconv.Atoi(req.URL.Query().Get("Rating"))
-	//TODO handle parsing errors
-	ratingFilter := req.URL.Query().Get("Filter")
-
-	//ratingFilterOp := req.URL.Query().Get("Op")
-
-	sessionRatings := db.SelectAllSessionRatings(rating, ratingFilter)
-	sendResponseAsJson(w, sessionRatings)
 }

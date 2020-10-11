@@ -2,7 +2,6 @@ package main
 
 import (
 	"ManOnTheMoonReviewService/route"
-	"ManOnTheMoonReviewService/util"
 	"log"
 	"net/http"
 )
@@ -10,15 +9,13 @@ import (
 func main() {
 	//TODO Safely start and stop server
 
-	//TODO Set Environment Variables
-	util.Init()
+	//TODO Make sure comments are formatted per Go Doc
 
-	//TODO Set middlewares through alice
-
+	//TODO Add JWT token authetication
 	//routes
 	mux := route.GetRoutes()
 
-	log.Printf("Staring Basic Web Server on Port 8080")
+	log.Printf("Starting Man on the Moon Game Rating Service on Port 8080")
 	err := http.ListenAndServe(":8080", mux)
 	if err != http.ErrServerClosed {
 		// unexpected error. port in use?
