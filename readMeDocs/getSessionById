@@ -1,0 +1,55 @@
+# Get Session By ID
+
+Replies with game player session information from the provided `sessionId`
+
+**URL** : `/Session/{sessionId}?PlayerId={PlayerId}`
+
+**Method** : `GET`
+
+**Auth required** : NO
+
+**Permissions required** : None
+
+**Data constraints** : None
+
+**Header constraints** : None
+
+## Success Responses
+
+**Condition** : None
+
+**Code** : `200 OK`
+
+**Content Type** : `application/json`
+
+**Content example** : Response will provide game player session information.
+
+```json
+
+{
+    "SessionId":"bu1qf15i7nd4ms6pra80",
+    "PlayerId":"bu1qf15i7nd4ms6pra3g",
+    "TimeSessionEnd":"2020-10-12T00:47:01Z"
+}
+```
+
+## Error Response
+
+**Condition** : Service did not process server-side generated player information.
+
+**Code** : `400 BAD REQUEST`
+
+**Content example** :
+
+```json
+{
+    "status": "SessionNotFound",
+    "message": "Could not find session using SessionId: bu1qf15i7nd4ms6pra80"
+}
+```
+
+## Notes
+
+* Player ID is a random 20 character string generated using the xid library
+
+  `https://github.com/rs/xid`
