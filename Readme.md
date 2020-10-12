@@ -1,369 +1,240 @@
-# Man on the Moon Review Service
+# Man on the Moon Review Service ![Moon Man](moon_man.jpg)
 
-Hello, welcome to the Man on the Moon Game Review Service!
+Hello, welcome to the Man on the Moon Game Review Service by Derek Askham!
 
-This readme is will explain the following:
+This service has several RESTful API endpoints that allow:
 
-    1. Instructions on how to set up the service, database, and tests.
-    2. Discuss assumptions about how the service and components were built
-    3. REST API Documentation
+- Players of the online game "Man on the Moon" to submit feedback for their last game session.
+- Members of an operations team to view and filter the feedback.
+- Users can give their session a rating on a scale of 1 to 5, and can leave a comment.
+- Multiple players can rate the same session, but each player can only rate a given session once.
 
 # Instructions to set up service
-    1. Copy project to local machine
-    `git clone <path-to-repo>`
-    
-This service allows a player to submit a rating for their game session.
+
+## Requirements
+- Goland or similar IDE
+- MySQL Server 8.0 with user credentials that has at a minimum read and write access.
+- MySQL Service running on `localhost:3306`
+- ManOnTheMoon schema and tables script
+- Docker
+
+## Deployment Files
+  `{project-root}/DockerFile`
+
+  `{project-root}/Docker-Compose.yaml `
 
 
+## Test Files
 
+  `{project-root}/controllers/controllers_test.go`
 
+  *Description*: Runs tests on each API endpoint
 
+## Testing
 
-# REST API example application
+    docker-compose run man-on-the-moon go test -v ./...
 
-This is a bare-bones example of a Sinatra application providing a REST
-API to a DataMapper-backed model.
+## Install & Deploy
+  1. Clone or download project to local machine
 
-The entire application is contained within the `app.rb` file.
+  `git clone <path-to-repo>`
 
-`config.ru` is a minimal Rack configuration for unicorn.
+  2. If you haven't already, install MySQL Server 8.0 on your host machine. Using a user with create permissions, run the provided script `ManOnTheMoon.sql` to build the database structures and populate sample data. The script is found in the root directory of the go project.
 
-`run-tests.sh` runs a simplistic test and generates the API
-documentation below.
+  3. Update the USER and PASSWORD environment variables in `dbConfig.env.dev` in the root directory of the go project with a user from you instance of MySQL with read and write permissions. You will not be able to connect to MySQL if this step isn't done.
 
-It uses `run-curl-tests.rb` which runs each command defined in
-`commands.yml`.
+  4. You can re-build the pre-built project executable or skip and continue to step 5.
+    go build .
 
-## Install
+  5. Use the below Docker command to build and deploy the service on port `:8080`.
 
-    bundle install
+    `docker-compose --env-file ./.env up`
 
-## Run the app
+  6. Use a browser, such as Chrome, or your preferred RESTful endpoint testing tools for testing the defined endpoints referenced below.
 
-    unicorn -p 7000
-
-## Run the tests
-
-    ./run-tests.sh
+# Assumptions
+- Users can only submit feedback on a completed game session. If the game connection was interrupted, no feedback would be prompted.
+- Ratings are used by operations to monitor and report app health on a regular basis, but perhaps not used as the sole source of app health in real time.
 
 # REST API
 
-The REST API to the example app is described below.
+* [Show info](readMeDocs/home.md) : `GET /`
+* [Show info](user/get.md) : `GET /api/user/``
+Read more [here](API Endpoint Documentation/Home.md) # It works!
 
-## Get list of Things
+## Get All Ratings
+[See Get All Ratings documentation](readMeDocs/getAllRatings.md)
 
 ### Request
 
-`GET /thing/`
+`GET /Session/Ratings/`
 
-    curl -i -H 'Accept: application/json' http://localhost:7000/thing/
+    curl -i "http://localhost:8080/Session/Ratings/"
 
 ### Response
 
     HTTP/1.1 200 OK
-    Date: Thu, 24 Feb 2011 12:36:30 GMT
-    Status: 200 OK
-    Connection: close
     Content-Type: application/json
-    Content-Length: 2
+    Date: Mon, 12 Oct 2020 04:02:28 GMT
+    Transfer-Encoding: chunked
 
     []
 
-## Create a new Thing
+### Request (Optional Filters)
 
-### Request
+`GET /Session/Ratings/?{params}`
 
-`POST /thing/`
-
-    curl -i -H 'Accept: application/json' -d 'name=Foo&status=new' http://localhost:7000/thing
-
-### Response
-
-    HTTP/1.1 201 Created
-    Date: Thu, 24 Feb 2011 12:36:30 GMT
-    Status: 201 Created
-    Connection: close
-    Content-Type: application/json
-    Location: /thing/1
-    Content-Length: 36
-
-    {"id":1,"name":"Foo","status":"new"}
-
-## Get a specific Thing
-
-### Request
-
-`GET /thing/id`
-
-    curl -i -H 'Accept: application/json' http://localhost:7000/thing/1
+    curl -i "http://localhost:8080/Session/Ratings/?Rating=3&Recent=1"
 
 ### Response
 
     HTTP/1.1 200 OK
-    Date: Thu, 24 Feb 2011 12:36:30 GMT
-    Status: 200 OK
-    Connection: close
     Content-Type: application/json
-    Content-Length: 36
+    Date: Mon, 12 Oct 2020 04:02:28 GMT
+    Transfer-Encoding: chunked
 
-    {"id":1,"name":"Foo","status":"new"}
+    []
 
-## Get a non-existent Thing
-
+## Create a new Rating
+[See create a new rating documentation](readMeDocs/createRating.md)
 ### Request
 
-`GET /thing/id`
+`POST /Session/{SessionId}/CreateRating/{params}`
 
-    curl -i -H 'Accept: application/json' http://localhost:7000/thing/9999
-
-### Response
-
-    HTTP/1.1 404 Not Found
-    Date: Thu, 24 Feb 2011 12:36:30 GMT
-    Status: 404 Not Found
-    Connection: close
-    Content-Type: application/json
-    Content-Length: 35
-
-    {"status":404,"reason":"Not found"}
-
-## Create another new Thing
-
-### Request
-
-`POST /thing/`
-
-    curl -i -H 'Accept: application/json' -d 'name=Bar&junk=rubbish' http://localhost:7000/thing
-
-### Response
-
-    HTTP/1.1 201 Created
-    Date: Thu, 24 Feb 2011 12:36:31 GMT
-    Status: 201 Created
-    Connection: close
-    Content-Type: application/json
-    Location: /thing/2
-    Content-Length: 35
-
-    {"id":2,"name":"Bar","status":null}
-
-## Get list of Things again
-
-### Request
-
-`GET /thing/`
-
-    curl -i -H 'Accept: application/json' http://localhost:7000/thing/
+    curl -i -X POST "http://localhost:8080/Session/bu1sc5di7nd3mi2dbua0/CreateRating?PlayerId=bu1sc5di7nd3mi2dbu9g&Rating=3&Comment=TestComment"
 
 ### Response
 
     HTTP/1.1 200 OK
-    Date: Thu, 24 Feb 2011 12:36:31 GMT
-    Status: 200 OK
-    Connection: close
     Content-Type: application/json
-    Content-Length: 74
+    Date: Mon, 12 Oct 2020 03:04:15 GMT
+    Content-Length: 115
 
-    [{"id":1,"name":"Foo","status":"new"},{"id":2,"name":"Bar","status":null}]
+    {"Status":"OK","Message":"Rating Successfully submitted for Session ID: bu1sc5di7nd3mi2dbua0 rating: 3 Good game moon man!"}
 
-## Change a Thing's state
-
+## Get a rating
+[See get rating documentation](readMeDocs/getRating.md)
 ### Request
 
-`PUT /thing/:id/status/changed`
+`GET /Session/{SessionId}/Rating{params}`
 
-    curl -i -H 'Accept: application/json' -X PUT http://localhost:7000/thing/1/status/changed
+    curl -i "http://localhost:8080/Session/bu1sc55i7nd3mi2dbs90/Rating?PlayerdId=bu1sc55i7nd3mi2dbs8g"
 
 ### Response
 
     HTTP/1.1 200 OK
-    Date: Thu, 24 Feb 2011 12:36:31 GMT
-    Status: 200 OK
-    Connection: close
     Content-Type: application/json
-    Content-Length: 40
+    Date: Mon, 12 Oct 2020 04:18:20 GMT
+    Content-Length: 141
 
-    {"id":1,"name":"Foo","status":"changed"}
+    {"Status":"SessionRatingNotFound","Message":"Could not find rating by player for session using PlayerId: and SessionId bu1sc55i7nd3mi2dbs90"}
 
-## Get changed Thing
-
+## Create a Player
+[See create a player documentation](readMeDocs/createPlayer.md)
 ### Request
 
-`GET /thing/id`
+`POST /Player/Create`
 
-    curl -i -H 'Accept: application/json' http://localhost:7000/thing/1
+    curl -i -X POST "http://localhost:8080/Player/Create"
 
 ### Response
 
     HTTP/1.1 200 OK
-    Date: Thu, 24 Feb 2011 12:36:31 GMT
-    Status: 200 OK
-    Connection: close
     Content-Type: application/json
-    Content-Length: 40
+    Date: Mon, 12 Oct 2020 04:20:59 GMT
+    Content-Length: 85
 
-    {"id":1,"name":"Foo","status":"changed"}
+    {"Status":"OK","Message":"New Player Successfully created. ID: bu1tjavr3qbtb1m73dn0"}
 
-## Change a Thing
-
+## Find a Player
+[See get a player documentation](readMeDocs/getPlayerById.md)
 ### Request
 
-`PUT /thing/:id`
+`POST /Player/{PlayerId}`
 
-    curl -i -H 'Accept: application/json' -X PUT -d 'name=Foo&status=changed2' http://localhost:7000/thing/1
+    curl -i "http://localhost:8080/Player/bu1sc9ti7nd4r54i04h0"
 
 ### Response
 
     HTTP/1.1 200 OK
-    Date: Thu, 24 Feb 2011 12:36:31 GMT
-    Status: 200 OK
-    Connection: close
     Content-Type: application/json
-    Content-Length: 41
+    Date: Mon, 12 Oct 2020 04:46:08 GMT
+    Content-Length: 99
 
-    {"id":1,"name":"Foo","status":"changed2"}
+    {"PlayerId":"bu1sc9ti7nd4r54i04h0","Name":"Anthony Taylor","TimeRegistered":"2020-10-12T02:57:43Z"}
 
-## Attempt to change a Thing using partial params
-
+## Get All Players
+[See get all players documentation](readMeDocs/getAllPlayers.md)
 ### Request
 
-`PUT /thing/:id`
+`GET /Players/
 
-    curl -i -H 'Accept: application/json' -X PUT -d 'status=changed3' http://localhost:7000/thing/1
+    curl -i "http://localhost:8080/Players/
 
 ### Response
 
     HTTP/1.1 200 OK
-    Date: Thu, 24 Feb 2011 12:36:32 GMT
-    Status: 200 OK
-    Connection: close
     Content-Type: application/json
-    Content-Length: 41
+    Date: Mon, 12 Oct 2020 04:23:59 GMT
+    Transfer-Encoding: chunked
 
-    {"id":1,"name":"Foo","status":"changed3"}
+    ["PlayerId":"bu1sc85i7nd28g415fsg","Name":"Elizabeth Davis","TimeRegistered":"2020-10-12T02:57:36Z"}, ...]
 
-## Attempt to change a Thing using invalid params
-
+## Find a Session
+[See get a session documentation](readMeDocs/getSessionById.md)
 ### Request
 
-`PUT /thing/:id`
+`GET /Session/{SessionId}{params}`
 
-    curl -i -H 'Accept: application/json' -X PUT -d 'id=99&status=changed4' http://localhost:7000/thing/1
+    curl -i "http://localhost:8080/Session/bu1sc55i7nd3mi2dbs90?PlayerId=bu1sc55i7nd3mi2dbs8g"
 
 ### Response
 
     HTTP/1.1 200 OK
-    Date: Thu, 24 Feb 2011 12:36:32 GMT
-    Status: 200 OK
-    Connection: close
     Content-Type: application/json
-    Content-Length: 41
+    Date: Mon, 12 Oct 2020 04:29:14 GMT
+    Content-Length: 110
 
-    {"id":1,"name":"Foo","status":"changed4"}
+    {"SessionId":"bu1sc55i7nd3mi2dbs90","PlayerId":"bu1sc55i7nd3mi2dbs8g","TimeSessionEnd":"2020-10-12T02:57:24Z"}
 
-## Change a Thing using the _method hack
-
+## Create a Session
+[See create a session documentation](readMeDocs/createSession.md)
 ### Request
 
-`POST /thing/:id?_method=POST`
+`POST /Session/Create{params}`
 
-    curl -i -H 'Accept: application/json' -X POST -d 'name=Baz&_method=PUT' http://localhost:7000/thing/1
+    curl -i -X POST "http://localhost:8080/Session/Create?PlayerId=bu1sc55i7nd3mi2dbs8g"
 
 ### Response
 
     HTTP/1.1 200 OK
-    Date: Thu, 24 Feb 2011 12:36:32 GMT
-    Status: 200 OK
-    Connection: close
     Content-Type: application/json
-    Content-Length: 41
+    Date: Mon, 12 Oct 2020 04:32:38 GMT
+    Content-Length: 86
 
-    {"id":1,"name":"Baz","status":"changed4"}
+    {"Status":"OK","Message":"New Session Successfully created. ID: bu1topnr3qbtb1m73dng"}
 
-## Change a Thing using the _method hack in the url
-
+## Get All Sessions
+[See get all sessions documentation](readMeDocs/getAllSessions.md)
 ### Request
 
-`POST /thing/:id?_method=POST`
+`GET /Sessions/`
 
-    curl -i -H 'Accept: application/json' -X POST -d 'name=Qux' http://localhost:7000/thing/1?_method=PUT
+    curl -i "http://localhost:8080/Sessions/"
 
 ### Response
 
-    HTTP/1.1 404 Not Found
-    Date: Thu, 24 Feb 2011 12:36:32 GMT
-    Status: 404 Not Found
-    Connection: close
-    Content-Type: text/html;charset=utf-8
-    Content-Length: 35
+HTTP/1.1 200 OK
+Content-Type: application/json
+Date: Mon, 12 Oct 2020 04:34:58 GMT
+Transfer-Encoding: chunked
 
-    {"status":404,"reason":"Not found"}
+[{"SessionId":"bu1sc55i7nd3mi2dbs90","PlayerId":"bu1sc55i7nd3mi2dbs8g","TimeSessionEnd":"2020-10-12T02:57:24Z"}, ...]
 
-## Delete a Thing
+## Tools
 
-### Request
+[See Home documentation](readMeDocs/home.md)
 
-`DELETE /thing/id`
+[See Health-Check sessions documentation](readMeDocs/healthCheck.md)
 
-    curl -i -H 'Accept: application/json' -X DELETE http://localhost:7000/thing/1/
-
-### Response
-
-    HTTP/1.1 204 No Content
-    Date: Thu, 24 Feb 2011 12:36:32 GMT
-    Status: 204 No Content
-    Connection: close
-
-
-## Try to delete same Thing again
-
-### Request
-
-`DELETE /thing/id`
-
-    curl -i -H 'Accept: application/json' -X DELETE http://localhost:7000/thing/1/
-
-### Response
-
-    HTTP/1.1 404 Not Found
-    Date: Thu, 24 Feb 2011 12:36:32 GMT
-    Status: 404 Not Found
-    Connection: close
-    Content-Type: application/json
-    Content-Length: 35
-
-    {"status":404,"reason":"Not found"}
-
-## Get deleted Thing
-
-### Request
-
-`GET /thing/1`
-
-    curl -i -H 'Accept: application/json' http://localhost:7000/thing/1
-
-### Response
-
-    HTTP/1.1 404 Not Found
-    Date: Thu, 24 Feb 2011 12:36:33 GMT
-    Status: 404 Not Found
-    Connection: close
-    Content-Type: application/json
-    Content-Length: 35
-
-    {"status":404,"reason":"Not found"}
-
-## Delete a Thing using the _method hack
-
-### Request
-
-`DELETE /thing/id`
-
-    curl -i -H 'Accept: application/json' -X POST -d'_method=DELETE' http://localhost:7000/thing/2/
-
-### Response
-
-    HTTP/1.1 204 No Content
-    Date: Thu, 24 Feb 2011 12:36:33 GMT
-    Status: 204 No Content
-    Connection: close
+[See Get Session Rating Random documentation](readMeDocs/gameSessionRating.md)

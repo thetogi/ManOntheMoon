@@ -13,7 +13,7 @@ func GetRoutes() *mux.Router {
 
 	//TODO Structure routes in loop and incorporate middleware handling
 
-	//Internal Tool Routes
+	//Internal Tools Routes
 	routes.HandleFunc("/", controllers.Home).Methods("GET")
 	routes.HandleFunc("/Health-Check", controllers.HealthCheck).Methods("GET")
 	routes.HandleFunc("/GameSession/Rating", controllers.GetRatingRandomForTesting).Methods("GET")
@@ -32,6 +32,6 @@ func GetRoutes() *mux.Router {
 	routes.HandleFunc("/Session/{SessionId}/Rating", controllers.GetSessionRatingBySessionIdSql).Methods("GET")
 	routes.HandleFunc("/Session/{SessionId}/CreateRating", controllers.PostSessionRatingCreateSql).Methods("POST")
 	routes.HandleFunc("/Session/Ratings/", controllers.GetAllSessionRatingsSql).Methods("GET")
-	//TODO paginate data of large table sources
+	//TODO paginate data responses for requests for large data sources
 	return routes
 }

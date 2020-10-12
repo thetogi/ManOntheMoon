@@ -47,4 +47,23 @@ func main() {
 		}
 		fmt.Println("Created player: ", playerData.Name, " Player Id: ", playerData.PlayerId)
 	}
+
+	playerCount2 := 10
+	sessionCount2 := 1 + rand.Intn(15-1+1)
+
+	for i := playerCount2; i > 0; i-- {
+
+		playerData := db.Player{PlayerId: xid.New().String(), Name: randomdata.FullName(randomdata.RandomGender), TimeRegistered: time.Now()}
+
+		db.InsertNewPlayer(playerData.PlayerId, playerData.Name, playerData.TimeRegistered)
+
+		for i := sessionCount2; i > 0; i-- {
+			sessionData := db.Session{SessionId: xid.New().String(), PlayerId: playerData.PlayerId, TimeSessionEnd: time.Now()}
+
+			db.InsertNewSession(sessionData.SessionId, sessionData.PlayerId, sessionData.TimeSessionEnd)
+
+			fmt.Println("Created session: ", sessionData.SessionId, " for: ", playerData.Name, " Player Id: ", playerData.PlayerId)
+		}
+		fmt.Println("Created player: ", playerData.Name, " Player Id: ", playerData.PlayerId)
+	}
 }

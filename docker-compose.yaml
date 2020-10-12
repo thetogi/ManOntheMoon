@@ -1,0 +1,10 @@
+version: "3.0"
+services:
+  man-on-the-moon:
+    build:
+      context: .
+      dockerfile: DockerFile
+    ports:
+      - "8080:8080"
+    env_file:
+          - dbConfig.env.dev
