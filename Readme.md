@@ -32,7 +32,16 @@ This service has several RESTful API endpoints that allow:
 
 ## Testing
 
+  Go: Run go tests in project root
+
+
+  Docker: Use CLI and run docker the below docker Command
+
     docker-compose run man-on-the-moon go test -v ./...
+
+## System Design
+
+![SystemDesign](ManontheMoonsystemdesign.jpeg)
 
 ## Install & Deploy
   1. Clone or download project to local machine
@@ -46,15 +55,41 @@ This service has several RESTful API endpoints that allow:
   4. You can re-build the pre-built project executable or skip and continue to step 5.
     go build .
 
-  5. Use the below Docker command to build and deploy the service on port `:8080`.
+  5. Using the CLI from the project root use the below Docker command to build and deploy the service on port `:8080`.
 
-    `docker-compose --env-file ./.env up`
+    `docker-compose up`
 
-  6. Use a browser, such as Chrome, or your preferred RESTful endpoint testing tools for testing the defined endpoints referenced below.
+  6. Use a browser, such as Chrome, or your preferred RESTful endpoint testing tools for testing the defined endpoints referenced below. The below API documentation provides examples using CURL.
+
+  7. To test if service is running you can use your browser or CURL against the below endpoint.
+
+    `http://localhost:8080/Health-Check`
+
 
 # Assumptions
 - Users can only submit feedback on a completed game session. If the game connection was interrupted, no feedback would be prompted.
 - Ratings are used by operations to monitor and report app health on a regular basis, but perhaps not used as the sole source of app health in real time.
+
+## Known Issues/Bugs
+
+- When running tests there is a bug with the godotenv library finding the environment file. The current setup is to use docker to inject environment variables from the `dbConfig.env.dev` file. If running tests or executing the build outside of docker db/db.go will need to be changed to use the commented out `connectionString()` function to use the `.env` instead.
+  - To fix this I would want to continue research and trying different suggestions from the issued documented in the link below. I may want to rethink approach to how I'm setting up environment variables for my environments
+
+      https://github.com/joho/godotenv/issues/43
+
+## Example routes
+
+### Submit a game review rating with comment
+
+    curl -i -X POST "http://localhost:8080/Session/bu1sc5di7nd3mi2dbu22/CreateRating?PlayerId=bu1sc5di7nd3mi2dbu13&Rating=3&Comment=TestComment"
+
+### Retrieve rating submitted    
+
+    curl -i "http://localhost:8080/Session/bu1sc5di7nd3mi2dbu22/Rating?PlayerId=bu1sc5di7nd3mi2dbu13"
+
+### Retrieve recent ratings
+
+      curl -i "http://localhost:8080/Session/Ratings/?Recent=1"
 
 # REST API
 
@@ -118,7 +153,7 @@ Read more [here](API Endpoint Documentation/Home.md) # It works!
 
 `GET /Session/{SessionId}/Rating{params}`
 
-    curl -i "http://localhost:8080/Session/bu1sc55i7nd3mi2dbs90/Rating?PlayerdId=bu1sc55i7nd3mi2dbs8g"
+    curl -i "http://localhost:8080/Session/bu1sc55i7nd3mi2dbs90/Rating?PlayerId=bu1sc55i7nd3mi2dbs8g"
 
 ### Response
 

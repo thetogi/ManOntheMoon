@@ -62,8 +62,8 @@ func main() {
 
 			db.InsertNewSession(sessionData.SessionId, sessionData.PlayerId, sessionData.TimeSessionEnd)
 
-			fmt.Println("Created session: ", sessionData.SessionId, " for: ", playerData.Name, " Player Id: ", playerData.PlayerId)
+			fmt.Println("Created session no rating: ", sessionData.SessionId, " for: ", playerData.Name, " Player Id: ", playerData.PlayerId)
 		}
-		fmt.Println("Created player: ", playerData.Name, " Player Id: ", playerData.PlayerId)
+		fmt.Println("Created player no rating: ", playerData.Name, " Player Id: ", playerData.PlayerId)
 	}
 }

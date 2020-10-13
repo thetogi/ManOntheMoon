@@ -37,3 +37,17 @@ func connectionString() string {
 
 	return fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?%v", user, password, address, port, database, params)
 }
+
+//Known bug, use this connection string for local builds and debugging if not storing env variables in IDE.
+//Development provides them from the Goland IDE otherwise the docker-compose file will provide them from the .env file.
+//func connectionString() string {
+//
+//	user := "root"
+//	password := "Password1!"
+//	address := "localhost"
+//	port := "3306"
+//	database := "ManOnTheMoon"
+//	params := "parseTime=true"
+//
+//	return fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?%v", user, password, address, port, database, params)
+//}

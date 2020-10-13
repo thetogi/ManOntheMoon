@@ -3,17 +3,36 @@ package controllers
 import (
 	"ManOnTheMoonReviewService/db"
 	"encoding/json"
+	"github.com/Pallinder/go-randomdata"
 	"github.com/gorilla/mux"
+	"github.com/rs/xid"
 	"github.com/stretchr/testify/assert"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 )
+
+var ExistingPlayerId string
+var ExistingSessionId string
+var RandomPlayerId string
+var RandomSessionId string
+var RandomRating string
+var RandomComment string
+
+func init() {
+	ExistingPlayerId = "bu1sc55i7nd3mi2dbs8g"
+	ExistingSessionId = "bu1sc55i7nd3mi2dbs90"
+	RandomPlayerId = xid.New().String()
+	RandomSessionId = xid.New().String()
+	RandomRating = strconv.Itoa(1 + rand.Intn(5-1+1))
+	RandomComment = randomdata.Paragraph()
+}
 
 func TestGetRatingRandom(t *testing.T) {
 
 	req, err := http.NewRequest("GET", "/GameSession/Rating", nil)
-
 	checkError(err, t)
 
 	rr := httptest.NewRecorder()
@@ -38,13 +57,12 @@ func TestGetRatingRandom(t *testing.T) {
 
 func TestGetPlayerByIdSql(t *testing.T) {
 
-	playerId := "btvs3qli7nd6216va0rg"
-	req, err := http.NewRequest("GET", "/Player/"+playerId, nil)
-	req = mux.SetURLVars(req, map[string]string{"PlayerId": "btvs3qli7nd6216va0rg"})
+	req, err := http.NewRequest("GET", "/Player/"+ExistingPlayerId, nil)
 	checkError(err, t)
 
+	//Use SetURLVars for tests so that the handler will correctly retrieve the URL path parameters
+	req = mux.SetURLVars(req, map[string]string{"PlayerId": ExistingPlayerId})
 	rr := httptest.NewRecorder()
-
 	http.HandlerFunc(GetPlayerByIdSql).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
@@ -58,7 +76,7 @@ func TestGetPlayerByIdSql(t *testing.T) {
 		panic(err)
 	}
 
-	assert.Equal(t, playerId, p.PlayerId, "PlayerId differs")
+	assert.Equal(t, ExistingPlayerId, p.PlayerId, "PlayerId differs")
 
 	if p.PlayerId == "" {
 		t.Errorf("Error finding player Id.")
@@ -92,11 +110,11 @@ func TestGetAllPlayersSql(t *testing.T) {
 
 func TestGetSessionByIdSql(t *testing.T) {
 
-	sessionId := "btvtm3di7nd52o66pn70"
-	req, err := http.NewRequest("GET", "/Session/"+sessionId, nil)
-	req = mux.SetURLVars(req, map[string]string{"SessionId": "btvtm3di7nd52o66pn70"})
+	req, err := http.NewRequest("GET", "/Session/"+ExistingSessionId, nil)
 	checkError(err, t)
 
+	//Use SetURLVars for tests so that the handler will correctly retrieve the URL path parameters
+	req = mux.SetURLVars(req, map[string]string{"SessionId": ExistingSessionId})
 	rr := httptest.NewRecorder()
 
 	http.HandlerFunc(GetSessionByIdSql).ServeHTTP(rr, req)
@@ -112,7 +130,7 @@ func TestGetSessionByIdSql(t *testing.T) {
 		panic(err)
 	}
 
-	assert.Equal(t, sessionId, s.SessionId, "SessionId differs")
+	assert.Equal(t, ExistingSessionId, s.SessionId, "SessionId differs")
 
 	if s.SessionId == "" {
 		t.Errorf("Error finding session Id.")
@@ -146,17 +164,18 @@ func TestGetAllSessionsSql(t *testing.T) {
 
 func TestGetSessionRatingBySessionIdSql(t *testing.T) {
 
-	sessionId := "btvtm3di7nd52o66pn70"
-	req, err := http.NewRequest("GET", "/Session/"+sessionId+"/Rating", nil)
+	req, err := http.NewRequest("GET", "/Session/"+ExistingSessionId+"/Rating", nil)
 	checkError(err, t)
-	req = mux.SetURLVars(req, map[string]string{"SessionId": sessionId})
 
+	//Use SetURLVars for tests so that the handler will correctly retrieve the URL path parameters
+	req = mux.SetURLVars(req, map[string]string{"SessionId": ExistingSessionId})
+
+	//Set query parameters
 	q := req.URL.Query()
-	q.Add("PlayerId", "btvs3qli7nd6216va0rg")
+	q.Add("PlayerId", ExistingPlayerId)
 	req.URL.RawQuery = q.Encode()
 
 	rr := httptest.NewRecorder()
-
 	http.HandlerFunc(GetSessionRatingBySessionIdSql).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
@@ -232,7 +251,7 @@ func TestPostSessionCreateSql(t *testing.T) {
 	checkError(err, t)
 
 	q := req.URL.Query()
-	q.Add("PlayerId", "btvs3qli7nd6216va0rg")
+	q.Add("PlayerId", ExistingPlayerId)
 	req.URL.RawQuery = q.Encode()
 	rr := httptest.NewRecorder()
 
@@ -257,12 +276,13 @@ func TestPostSessionCreateSql(t *testing.T) {
 
 func TestPostSessionRatingCreateSql(t *testing.T) {
 
-	sessionId := "btvtm3di7nd52o66pn70"
-	req, err := http.NewRequest("POST", "/Session/"+sessionId+"/CreateRating", nil)
+	req, err := http.NewRequest("POST", "/Session/"+RandomSessionId+"/CreateRating", nil)
 	checkError(err, t)
 
 	q := req.URL.Query()
-	q.Add("PlayerId", "btvs3qli7nd6216va0rg")
+	q.Add("PlayerId", RandomPlayerId)
+	q.Add("Rating", RandomRating)
+	q.Add("Comment", RandomComment)
 	req.URL.RawQuery = q.Encode()
 	rr := httptest.NewRecorder()
 
