@@ -14,7 +14,7 @@ type SessionController struct {
 }
 
 //GetSessionByIdSql returns data of a player's session by session and player Id
-func (*SessionController) GetSession(w http.ResponseWriter, req *http.Request) {
+func (s *SessionController) GetSession(w http.ResponseWriter, req *http.Request) {
 
 	//Get sessionId from URL path
 	params := mux.Vars(req)
@@ -38,7 +38,7 @@ func (*SessionController) GetSession(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (*SessionController) CreateSession(w http.ResponseWriter, req *http.Request) {
+func (s *SessionController) CreateSession(w http.ResponseWriter, req *http.Request) {
 
 	//Generate new session id
 	sessionId := xid.New().String()
@@ -73,7 +73,7 @@ func (*SessionController) CreateSession(w http.ResponseWriter, req *http.Request
 }
 
 //GetAllSessions returns all sessions by players from the sessions table
-func (*SessionController) GetAllSessions(w http.ResponseWriter, req *http.Request) {
+func (s *SessionController) GetAllSessions(w http.ResponseWriter, req *http.Request) {
 
 	//Retrieve all sessions from sessions table
 	sessionsData := db.SelectAllSessions()

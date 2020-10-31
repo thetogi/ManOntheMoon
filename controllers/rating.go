@@ -19,9 +19,9 @@ type RatingController struct {
 }
 
 //GetRating returns a player's session rating by their Ids
-func (*RatingController) GetRating(w http.ResponseWriter, req *http.Request) {
+func (r *RatingController) GetRating(w http.ResponseWriter, req *http.Request) {
 
-	//Get session from URL pathand player from URL path
+	//Get session from URL path and player from URL path
 	params := mux.Vars(req)
 	sessionId := params["SessionId"]
 
@@ -47,7 +47,7 @@ func (*RatingController) GetRating(w http.ResponseWriter, req *http.Request) {
 }
 
 //GetRatings returns all ratings by players for their sessions from the Ratings table. Optional filters can be provided for returning ratings.
-func (*RatingController) GetRatings(w http.ResponseWriter, req *http.Request) {
+func (r *RatingController) GetRatings(w http.ResponseWriter, req *http.Request) {
 	//Get rating to filter by that value if provided
 	rating := req.URL.Query().Get("Rating")
 
@@ -127,7 +127,7 @@ func (*RatingController) GetRatings(w http.ResponseWriter, req *http.Request) {
 
 //*****POST Handlers*****//
 
-func (*RatingController) CreateRating(w http.ResponseWriter, req *http.Request) {
+func (r *RatingController) CreateRating(w http.ResponseWriter, req *http.Request) {
 
 	//Get SessionId from parameter string
 	params := mux.Vars(req)
@@ -193,7 +193,7 @@ func (*RatingController) CreateRating(w http.ResponseWriter, req *http.Request) 
 }
 
 //GetRandomRating Simulates returning a rating. Nothing is retrieved from or committed to database.
-func (*RatingController) GetRandomRating(w http.ResponseWriter, req *http.Request) {
+func (r *RatingController) GetRandomRating(w http.ResponseWriter, req *http.Request) {
 
 	//Generate random session rating data
 	sessionId := xid.New().String()

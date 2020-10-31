@@ -3,7 +3,9 @@ package controllers
 import (
 	"ManOnTheMoonReviewService/controllers/response"
 	"ManOnTheMoonReviewService/db"
+	"ManOnTheMoonReviewService/models"
 	"ManOnTheMoonReviewService/util"
+	"encoding/json"
 	"github.com/Pallinder/go-randomdata"
 	"github.com/gorilla/mux"
 	"net/http"
@@ -15,7 +17,18 @@ type PlayerController struct {
 }
 
 //GetPlayer returns data of a single player by Id
-func (*PlayerController) GetPlayer(w http.ResponseWriter, req *http.Request) {
+func (p *PlayerController) GetPlayer(w http.ResponseWriter, req *http.Request) {
+
+	d := json.NewDecoder(req.Body)
+	d.DisallowUnknownFields() // catch unwanted fields
+	var player models.Player
+
+	err := d.Decode(&player)
+	if err != nil {
+		// bad JSON or unrecognized json field
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 
 	//Get playerId from URL path
 	params := mux.Vars(req)
@@ -39,7 +52,7 @@ func (*PlayerController) GetPlayer(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (*PlayerController) CreatePlayer(w http.ResponseWriter, req *http.Request) {
+func (p *PlayerController) CreatePlayer(w http.ResponseWriter, req *http.Request) {
 
 	//Generate new PlayerId
 	playerID := util.NewUUID()
@@ -78,7 +91,7 @@ func (*PlayerController) CreatePlayer(w http.ResponseWriter, req *http.Request) 
 }
 
 //GetAllPlayers returns all players from the players table
-func (*PlayerController) GetAllPlayers(w http.ResponseWriter, req *http.Request) {
+func (p *PlayerController) GetAllPlayers(w http.ResponseWriter, req *http.Request) {
 
 	//Retrieve all players from players table
 	playersData := db.SelectAllPlayers()
@@ -101,5 +114,3 @@ func (*PlayerController) GetAllPlayers(w http.ResponseWriter, req *http.Request)
 
 	response.Write(w, responseData)
 }
-
-//GetRandomPlayer

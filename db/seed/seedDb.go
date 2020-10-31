@@ -2,69 +2,44 @@ package main
 
 import (
 	"ManOnTheMoonReviewService/db"
-	"ManOnTheMoonReviewService/models"
+	seed "ManOnTheMoonReviewService/db/seed/seeder"
 	"fmt"
-	"github.com/Pallinder/go-randomdata"
-	"github.com/rs/xid"
+	"log"
 	"math/rand"
-	"time"
 )
 
 //Generates random data for the database
 func main() {
 
-	//Create 10 random Players, Sessions, and Ratings
+	genPlayers := 100
 
-	//Generate random session rating data
-	playerCount := 10
-	sessionCount := 1 + rand.Intn(15-1+1)
+	for p := genPlayers; p > 0; p-- {
 
-	for i := playerCount; i > 0; i-- {
+		var seeder seed.Seeder
+		genSessions := 1 + rand.Intn(15-1+1)
+		seeder.Generate(genSessions, genSessions)
 
-		playerData := models.Player{PlayerId: xid.New().String(), Name: randomdata.FullName(randomdata.RandomGender), TimeRegistered: time.Now()}
+		ok, err := db.InsertNewPlayer(seeder.Player.PlayerId, seeder.Player.Name, seeder.Player.TimeRegistered)
+		if !ok {
+			log.Fatal("Failed to insert new player. Error: " + err.Error())
+		}
 
-		db.InsertNewPlayer(playerData.PlayerId, playerData.Name, playerData.TimeRegistered)
+		fmt.Println("Created player: ", seeder.Player.Name, " Player Id: ", seeder.Player.PlayerId)
 
-		for i := sessionCount; i > 0; i-- {
-			sessionData := models.Session{SessionId: xid.New().String(), PlayerId: playerData.PlayerId, TimeSessionEnd: time.Now()}
-
-			db.InsertNewSession(sessionData.SessionId, sessionData.PlayerId, sessionData.TimeSessionEnd)
-
-			fmt.Println("Created session: ", sessionData.SessionId, " for: ", playerData.Name, " Player Id: ", playerData.PlayerId)
-
-			ratingData := models.Rating{
-				SessionId:     sessionData.SessionId,
-				PlayerId:      playerData.PlayerId,
-				Rating:        1 + rand.Intn(5-1+1),
-				Comment:       randomdata.Paragraph(),
-				TimeSubmitted: time.Now()}
-
-			if len(ratingData.Comment) > 511 {
-				ratingData.Comment = ratingData.Comment[0:511]
+		for s := 0; s < len(seeder.Sessions); s++ {
+			db.InsertNewSession(seeder.Sessions[s].SessionId, seeder.Sessions[s].PlayerId, seeder.Sessions[s].TimeSessionEnd)
+			if !ok {
+				log.Fatal("Failed to insert new session. Error: " + err.Error())
 			}
-
-			db.InsertNewSessionRating(ratingData.SessionId, ratingData.PlayerId, ratingData.Rating, ratingData.Comment, ratingData.TimeSubmitted)
-			fmt.Println("Created session rating for: ", playerData.Name, " Player Id: ", playerData.PlayerId, " session Id: ", sessionData.SessionId, " rating: ", ratingData.Rating)
+			fmt.Println("Created session: ", seeder.Sessions[s].SessionId, " for: ", seeder.Player.Name, " Player Id: ", seeder.Player.PlayerId)
 		}
-		fmt.Println("Created player: ", playerData.Name, " Player Id: ", playerData.PlayerId)
-	}
 
-	playerCount2 := 10
-	sessionCount2 := 1 + rand.Intn(15-1+1)
-
-	for i := playerCount2; i > 0; i-- {
-
-		playerData := models.Player{PlayerId: xid.New().String(), Name: randomdata.FullName(randomdata.RandomGender), TimeRegistered: time.Now()}
-
-		db.InsertNewPlayer(playerData.PlayerId, playerData.Name, playerData.TimeRegistered)
-
-		for i := sessionCount2; i > 0; i-- {
-			sessionData := models.Session{SessionId: xid.New().String(), PlayerId: playerData.PlayerId, TimeSessionEnd: time.Now()}
-
-			db.InsertNewSession(sessionData.SessionId, sessionData.PlayerId, sessionData.TimeSessionEnd)
-
-			fmt.Println("Created session no rating: ", sessionData.SessionId, " for: ", playerData.Name, " Player Id: ", playerData.PlayerId)
+		for r := 0; r < len(seeder.Ratings); r++ {
+			db.InsertNewRating(seeder.Ratings[r].SessionId, seeder.Ratings[r].PlayerId, seeder.Ratings[r].Rating, seeder.Ratings[r].Comment, seeder.Ratings[r].TimeSubmitted)
+			if !ok {
+				log.Fatal("Failed to insert new rating. Error: " + err.Error())
+			}
+			fmt.Println("Created rating for: ", seeder.Player.Name, " Player Id: ", seeder.Player.PlayerId, " session Id: ", seeder.Ratings[r].SessionId, " rating: ", seeder.Ratings[r].Rating)
 		}
-		fmt.Println("Created player no rating: ", playerData.Name, " Player Id: ", playerData.PlayerId)
 	}
 }

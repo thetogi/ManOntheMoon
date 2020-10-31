@@ -127,7 +127,7 @@ func SelectAllSessions() []models.Session {
 func SelectRating(sessionId string, playerId string) models.Rating {
 	fmt.Println("Executing SELECT: SelectRating")
 
-	sqlStatement := "SELECT sr.SessionId, sr.PlayerId, sr.Rating, sr.Comment, sr.TimeSubmitted FROM SessionRatings sr WHERE sr.SessionId = ? AND sr.PlayerId = ?"
+	sqlStatement := "SELECT r.SessionId, r.PlayerId, r.Rating, r.Comment, r.TimeSubmitted FROM ratings r WHERE r.SessionId = ? AND r.PlayerId = ?"
 
 	stmt, err := Db.Prepare(sqlStatement)
 	if err != nil {
@@ -150,7 +150,7 @@ func SelectRating(sessionId string, playerId string) models.Rating {
 }
 
 func SelectAllRatings(rating int, ratingFilterOp string, recentFlag bool) []models.Rating {
-	fmt.Println("Executing SELECT: SelectAllSessionRatings")
+	fmt.Println("Executing SELECT: SelectAllRatings")
 	var ratings []models.Rating
 
 	var limitPart string
@@ -169,23 +169,23 @@ func SelectAllRatings(rating int, ratingFilterOp string, recentFlag bool) []mode
 	if ratingFilterOp != "" {
 		switch ratingFilterOp {
 		case ">":
-			filterPart = "WHERE sr.Rating > ?"
+			filterPart = "WHERE r.Rating > ?"
 		case ">=":
-			filterPart = "WHERE sr.Rating >= ?"
+			filterPart = "WHERE r.Rating >= ?"
 		case "<":
-			filterPart = "WHERE sr.Rating < ?"
+			filterPart = "WHERE r.Rating < ?"
 		case "<=":
-			filterPart = "WHERE sr.Rating <= ?"
+			filterPart = "WHERE r.Rating <= ?"
 		}
 		//Combine parts to build SQL statement
-		sqlStatement = "SELECT sr.SessionId, sr.PlayerId, sr.Rating, sr.Comment, sr.TimeSubmitted FROM SessionRatings sr " + filterPart + " ORDER BY sr.TimeSubmitted DESC " + limitPart
+		sqlStatement = "SELECT r.SessionId, r.PlayerId, r.Rating, r.Comment, r.TimeSubmitted FROM ratings r " + filterPart + " ORDER BY r.TimeSubmitted DESC " + limitPart
 		rows, err = Db.Query(sqlStatement, rating)
 	} else if rating != 0 {
 		//Combine parts to build SQL statement
-		sqlStatement = "SELECT sr.SessionId, sr.PlayerId, sr.Rating, sr.Comment, sr.TimeSubmitted FROM SessionRatings sr WHERE sr.Rating = ? ORDER BY sr.TimeSubmitted DESC " + limitPart
+		sqlStatement = "SELECT r.SessionId, r.PlayerId, r.Rating, r.Comment, r.TimeSubmitted FROM ratings r WHERE r.Rating = ? ORDER BY r.TimeSubmitted DESC " + limitPart
 		rows, err = Db.Query(sqlStatement, rating)
 	} else {
-		sqlStatement = "SELECT sr.SessionId, sr.PlayerId, sr.Rating, sr.Comment, sr.TimeSubmitted FROM SessionRatings sr ORDER BY sr.TimeSubmitted DESC " + limitPart
+		sqlStatement = "SELECT r.SessionId, r.PlayerId, r.Rating, r.Comment, r.TimeSubmitted FROM ratings r ORDER BY r.TimeSubmitted DESC " + limitPart
 		rows, err = Db.Query(sqlStatement)
 	}
 
@@ -259,7 +259,7 @@ func InsertNewSession(sessionId string, playerId string, timeSessionEnd time.Tim
 func InsertNewRating(sessionId string, playerId string, rating int, comment string, timeSubmitted time.Time) (bool, error) {
 	fmt.Println("Executing INSERT: InsertNewRating")
 
-	sqlStatement := "INSERT INTO SessionRatings (`SessionId`,`PlayerId`,`Rating`,`Comment`, `TimeSubmitted`) VALUES ( ?,?,?,?,?)"
+	sqlStatement := "INSERT INTO ratings (`SessionId`,`PlayerId`,`Rating`,`Comment`, `TimeSubmitted`) VALUES ( ?,?,?,?,?)"
 
 	stmt, err := Db.Prepare(sqlStatement)
 	if err != nil {

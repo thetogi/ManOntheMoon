@@ -11,7 +11,7 @@ type AppController struct {
 	Controller
 }
 
-func (*AppController) Home(w http.ResponseWriter, req *http.Request) {
+func (a *AppController) Home(w http.ResponseWriter, req *http.Request) {
 	if req.URL.Path != "/" {
 		w.WriteHeader(404)
 		w.Write([]byte("Not Found !!!"))
@@ -23,7 +23,7 @@ func (*AppController) Home(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-func (*AppController) HealthCheck(w http.ResponseWriter, req *http.Request) {
+func (a *AppController) HealthCheck(w http.ResponseWriter, req *http.Request) {
 	requestStartRaw := req.Header.Get("date")
 	requestStart, _ := time.Parse(time.RFC1123, requestStartRaw)
 	diff := time.Now().Sub(requestStart)
