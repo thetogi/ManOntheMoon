@@ -2,6 +2,7 @@ package main
 
 import (
 	"ManOnTheMoonReviewService/db"
+	"ManOnTheMoonReviewService/models"
 	"fmt"
 	"github.com/Pallinder/go-randomdata"
 	"github.com/rs/xid"
@@ -20,30 +21,30 @@ func main() {
 
 	for i := playerCount; i > 0; i-- {
 
-		playerData := db.Player{PlayerId: xid.New().String(), Name: randomdata.FullName(randomdata.RandomGender), TimeRegistered: time.Now()}
+		playerData := models.Player{PlayerId: xid.New().String(), Name: randomdata.FullName(randomdata.RandomGender), TimeRegistered: time.Now()}
 
 		db.InsertNewPlayer(playerData.PlayerId, playerData.Name, playerData.TimeRegistered)
 
 		for i := sessionCount; i > 0; i-- {
-			sessionData := db.Session{SessionId: xid.New().String(), PlayerId: playerData.PlayerId, TimeSessionEnd: time.Now()}
+			sessionData := models.Session{SessionId: xid.New().String(), PlayerId: playerData.PlayerId, TimeSessionEnd: time.Now()}
 
 			db.InsertNewSession(sessionData.SessionId, sessionData.PlayerId, sessionData.TimeSessionEnd)
 
 			fmt.Println("Created session: ", sessionData.SessionId, " for: ", playerData.Name, " Player Id: ", playerData.PlayerId)
 
-			sessionRatingData := db.SessionRating{
+			ratingData := models.Rating{
 				SessionId:     sessionData.SessionId,
 				PlayerId:      playerData.PlayerId,
 				Rating:        1 + rand.Intn(5-1+1),
 				Comment:       randomdata.Paragraph(),
 				TimeSubmitted: time.Now()}
 
-			if len(sessionRatingData.Comment) > 511 {
-				sessionRatingData.Comment = sessionRatingData.Comment[0:511]
+			if len(ratingData.Comment) > 511 {
+				ratingData.Comment = ratingData.Comment[0:511]
 			}
 
-			db.InsertNewSessionRating(sessionRatingData.SessionId, sessionRatingData.PlayerId, sessionRatingData.Rating, sessionRatingData.Comment, sessionRatingData.TimeSubmitted)
-			fmt.Println("Created session rating for: ", playerData.Name, " Player Id: ", playerData.PlayerId, " session Id: ", sessionData.SessionId, " rating: ", sessionRatingData.Rating)
+			db.InsertNewSessionRating(ratingData.SessionId, ratingData.PlayerId, ratingData.Rating, ratingData.Comment, ratingData.TimeSubmitted)
+			fmt.Println("Created session rating for: ", playerData.Name, " Player Id: ", playerData.PlayerId, " session Id: ", sessionData.SessionId, " rating: ", ratingData.Rating)
 		}
 		fmt.Println("Created player: ", playerData.Name, " Player Id: ", playerData.PlayerId)
 	}
@@ -53,12 +54,12 @@ func main() {
 
 	for i := playerCount2; i > 0; i-- {
 
-		playerData := db.Player{PlayerId: xid.New().String(), Name: randomdata.FullName(randomdata.RandomGender), TimeRegistered: time.Now()}
+		playerData := models.Player{PlayerId: xid.New().String(), Name: randomdata.FullName(randomdata.RandomGender), TimeRegistered: time.Now()}
 
 		db.InsertNewPlayer(playerData.PlayerId, playerData.Name, playerData.TimeRegistered)
 
 		for i := sessionCount2; i > 0; i-- {
-			sessionData := db.Session{SessionId: xid.New().String(), PlayerId: playerData.PlayerId, TimeSessionEnd: time.Now()}
+			sessionData := models.Session{SessionId: xid.New().String(), PlayerId: playerData.PlayerId, TimeSessionEnd: time.Now()}
 
 			db.InsertNewSession(sessionData.SessionId, sessionData.PlayerId, sessionData.TimeSessionEnd)
 

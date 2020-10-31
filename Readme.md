@@ -32,9 +32,6 @@ This service has several RESTful API endpoints that allow:
 
 ## Testing
 
-  Go: Run go tests in project root
-
-
   Docker: Use CLI and run docker the below docker Command
 
     docker-compose run man-on-the-moon go test -v ./...
@@ -48,14 +45,15 @@ This service has several RESTful API endpoints that allow:
 
   `git clone <path-to-repo>`
 
-  2. If you haven't already, install MySQL Server 8.0 on your host machine. Using a user with create permissions, run the provided script `ManOnTheMoon.sql` to build the database structures and populate sample data. The script is found in the root directory of the go project.
+  2. If you haven't already, install MySQL Server 8.0 on your host machine. Using a user with create permissions, run the provided script `ManOnTheMoonPopulate.sql` to build the database structures and populate sample data. The script is found in the root directory of the go project.
 
   3. Update the USER and PASSWORD environment variables in `dbConfig.env.dev` in the root directory of the go project with a user from you instance of MySQL with read and write permissions. You will not be able to connect to MySQL if this step isn't done.
 
-  4. You can re-build the pre-built project executable or skip and continue to step 5.
-    go build .
+  4. Build the go project from the project root.
 
-  5. Using the CLI from the project root use the below Docker command to build and deploy the service on port `:8080`.
+    `go build .`
+
+  5. Using the CLI go to the project root use the below Docker command to build and deploy the service on port `:8080`.
 
     `docker-compose up`
 
@@ -67,7 +65,7 @@ This service has several RESTful API endpoints that allow:
 
 
 # Assumptions
-- Users can only submit feedback on a completed game session. If the game connection was interrupted, no feedback would be prompted.
+- Users can only submit feedback on a completed game session. If the game connection was interrupted, no prompt for feedback would occur.
 - Ratings are used by operations to monitor and report app health on a regular basis, but perhaps not used as the sole source of app health in real time.
 
 ## Known Issues/Bugs
@@ -77,7 +75,7 @@ This service has several RESTful API endpoints that allow:
 
       https://github.com/joho/godotenv/issues/43
 
-## Example routes
+## Example Endpoints
 
 ### Submit a game review rating with comment
 
@@ -90,6 +88,14 @@ This service has several RESTful API endpoints that allow:
 ### Retrieve recent ratings
 
       curl -i "http://localhost:8080/Session/Ratings/?Recent=1"
+
+### Retrieve all ratings greater equal to 5
+
+      curl -i "http://localhost:8080/Session/Ratings/?Rating=5"
+
+### Retrieve all ratings greater than or equal to 3
+
+    curl -i "http://localhost:8080/Session/Ratings/?Rating=3&Filter=%3E%3D"
 
 # REST API
 

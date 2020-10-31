@@ -4,6 +4,7 @@ package db
 //the database/sql library and driver will sanitize inputs using parameterized queries to prevent SQL injection.
 
 import (
+	"ManOnTheMoonReviewService/models"
 	"fmt"
 
 	"database/sql"
@@ -13,7 +14,7 @@ import (
 
 //*****Select Queries*******//
 
-func SelectPlayerByPlayerId(playerId string) Player {
+func SelectPlayer(playerId string) models.Player {
 	fmt.Println("Executing SELECT: GetPlayerByPlayerId")
 
 	sqlStatement := "SELECT p.PlayerId, p.Name, p.TimeRegistered FROM players p WHERE p.PlayerID = ?"
@@ -23,7 +24,7 @@ func SelectPlayerByPlayerId(playerId string) Player {
 		log.Fatal(err)
 	}
 
-	var PlayerData Player
+	var PlayerData models.Player
 	switch err := stmt.QueryRow(playerId).Scan(&PlayerData.PlayerId, &PlayerData.Name, &PlayerData.TimeRegistered); err {
 	case sql.ErrNoRows:
 		fmt.Println("No player was found!, PlayerId: " + playerId)
@@ -38,7 +39,7 @@ func SelectPlayerByPlayerId(playerId string) Player {
 	return PlayerData
 }
 
-func SelectAllPlayers() []Player {
+func SelectAllPlayers() []models.Player {
 	fmt.Println("Executing SELECT: SelectAllPlayers")
 
 	sqlStatement := "SELECT p.PlayerId, p.Name, p.TimeRegistered FROM players p"
@@ -50,14 +51,14 @@ func SelectAllPlayers() []Player {
 	}
 	defer rows.Close()
 
-	var Players []Player
-	var PlayerData Player
+	var Players []models.Player
+	var PlayerData models.Player
 	for rows.Next() {
 		switch err := rows.Scan(&PlayerData.PlayerId, &PlayerData.Name, &PlayerData.TimeRegistered); err {
 		case sql.ErrNoRows:
 			fmt.Println("No rows were returned!")
 		case nil:
-			Players = append(Players, Player{PlayerData.PlayerId, PlayerData.Name, PlayerData.TimeRegistered})
+			Players = append(Players, models.Player{PlayerId: PlayerData.PlayerId, Name: PlayerData.Name, TimeRegistered: PlayerData.TimeRegistered})
 			fmt.Println(PlayerData.PlayerId, PlayerData.Name, PlayerData.TimeRegistered)
 		default:
 			panic(err)
@@ -68,7 +69,7 @@ func SelectAllPlayers() []Player {
 	return Players
 }
 
-func SelectSessionbyId(sessionId string) Session {
+func SelectSession(sessionId string) models.Session {
 
 	fmt.Println("Executing SELECT: SelectSessionById")
 
@@ -79,7 +80,7 @@ func SelectSessionbyId(sessionId string) Session {
 		log.Fatal(err)
 	}
 
-	var Session Session
+	var Session models.Session
 	switch err := stmt.QueryRow(sessionId).Scan(&Session.SessionId, &Session.PlayerId, &Session.TimeSessionEnd); err {
 	case sql.ErrNoRows:
 		fmt.Println("No session was found!, SessionId: " + sessionId)
@@ -94,7 +95,7 @@ func SelectSessionbyId(sessionId string) Session {
 	return Session
 }
 
-func SelectAllSessions() []Session {
+func SelectAllSessions() []models.Session {
 	fmt.Println("Executing SELECT: SelectAllSessions")
 	sqlStatement := "SELECT s.SessionId, s.PlayerId, s.TimeSessionEnd FROM Sessions s"
 
@@ -105,14 +106,14 @@ func SelectAllSessions() []Session {
 
 	defer rows.Close()
 
-	var Sessions []Session
-	var SingleSession Session
+	var Sessions []models.Session
+	var SingleSession models.Session
 	for rows.Next() {
 		switch err := rows.Scan(&SingleSession.SessionId, &SingleSession.PlayerId, &SingleSession.TimeSessionEnd); err {
 		case sql.ErrNoRows:
 			fmt.Println("No rows were returned!")
 		case nil:
-			Sessions = append(Sessions, Session{SingleSession.SessionId, SingleSession.PlayerId, SingleSession.TimeSessionEnd})
+			Sessions = append(Sessions, models.Session{SingleSession.SessionId, SingleSession.PlayerId, SingleSession.TimeSessionEnd})
 			fmt.Println(SingleSession.SessionId, SingleSession.PlayerId, SingleSession.TimeSessionEnd)
 		default:
 			panic(err)
@@ -123,8 +124,8 @@ func SelectAllSessions() []Session {
 	return Sessions
 }
 
-func SelectSessionRating(sessionId string, playerId string) SessionRating {
-	fmt.Println("Executing SELECT: SelectSessionRating")
+func SelectRating(sessionId string, playerId string) models.Rating {
+	fmt.Println("Executing SELECT: SelectRating")
 
 	sqlStatement := "SELECT sr.SessionId, sr.PlayerId, sr.Rating, sr.Comment, sr.TimeSubmitted FROM SessionRatings sr WHERE sr.SessionId = ? AND sr.PlayerId = ?"
 
@@ -133,24 +134,24 @@ func SelectSessionRating(sessionId string, playerId string) SessionRating {
 		log.Fatal(err)
 	}
 
-	var sessionRatingData SessionRating
-	switch err := stmt.QueryRow(sessionId, playerId).Scan(&sessionRatingData.SessionId, &sessionRatingData.PlayerId, &sessionRatingData.Rating, &sessionRatingData.Comment, &sessionRatingData.TimeSubmitted); err {
+	var ratingData models.Rating
+	switch err := stmt.QueryRow(sessionId, playerId).Scan(&ratingData.SessionId, &ratingData.PlayerId, &ratingData.Rating, &ratingData.Comment, &ratingData.TimeSubmitted); err {
 	case sql.ErrNoRows:
 		fmt.Println("No session rating was found!, SessionId: " + sessionId + " PlayerId: " + playerId)
 	case nil:
-		fmt.Println(sessionRatingData.SessionId, sessionRatingData.Rating, sessionRatingData.Comment, sessionRatingData.TimeSubmitted)
+		fmt.Println(ratingData.SessionId, ratingData.Rating, ratingData.Comment, ratingData.TimeSubmitted)
 	default:
 		panic(err)
 	}
 
 	defer stmt.Close()
 
-	return sessionRatingData
+	return ratingData
 }
 
-func SelectAllSessionRatings(rating int, ratingFilterOp string, recentFlag bool) []SessionRating {
+func SelectAllRatings(rating int, ratingFilterOp string, recentFlag bool) []models.Rating {
 	fmt.Println("Executing SELECT: SelectAllSessionRatings")
-	var SessionRatings []SessionRating
+	var ratings []models.Rating
 
 	var limitPart string
 	var sqlStatement string
@@ -194,13 +195,13 @@ func SelectAllSessionRatings(rating int, ratingFilterOp string, recentFlag bool)
 
 	defer rows.Close()
 
-	var Rating SessionRating
+	var Rating models.Rating
 	for rows.Next() {
 		switch err := rows.Scan(&Rating.SessionId, &Rating.PlayerId, &Rating.Rating, &Rating.Comment, &Rating.TimeSubmitted); err {
 		case sql.ErrNoRows:
 			fmt.Println("No rows were returned!")
 		case nil:
-			SessionRatings = append(SessionRatings, SessionRating{Rating.SessionId, Rating.PlayerId, Rating.Rating, Rating.Comment, Rating.TimeSubmitted})
+			ratings = append(ratings, models.Rating{SessionId: Rating.SessionId, PlayerId: Rating.PlayerId, Rating: Rating.Rating, Comment: Rating.Comment, TimeSubmitted: Rating.TimeSubmitted})
 			fmt.Println(Rating.SessionId, Rating.PlayerId, Rating.Rating, Rating.Comment, Rating.TimeSubmitted)
 		default:
 			panic(err)
@@ -208,7 +209,7 @@ func SelectAllSessionRatings(rating int, ratingFilterOp string, recentFlag bool)
 		// get any error encountered during iteration
 		err = rows.Err()
 	}
-	return SessionRatings
+	return ratings
 }
 
 //*****Insert Queries*******//
@@ -255,8 +256,8 @@ func InsertNewSession(sessionId string, playerId string, timeSessionEnd time.Tim
 	return true, err
 }
 
-func InsertNewSessionRating(sessionId string, playerId string, rating int, comment string, timeSubmitted time.Time) (bool, error) {
-	fmt.Println("Executing INSERT: InsertNewSessionRating")
+func InsertNewRating(sessionId string, playerId string, rating int, comment string, timeSubmitted time.Time) (bool, error) {
+	fmt.Println("Executing INSERT: InsertNewRating")
 
 	sqlStatement := "INSERT INTO SessionRatings (`SessionId`,`PlayerId`,`Rating`,`Comment`, `TimeSubmitted`) VALUES ( ?,?,?,?,?)"
 

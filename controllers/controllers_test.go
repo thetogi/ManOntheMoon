@@ -22,8 +22,8 @@ var RandomRating string
 var RandomComment string
 
 func init() {
-	ExistingPlayerId = "bu1sc55i7nd3mi2dbs8g"
-	ExistingSessionId = "bu1sc55i7nd3mi2dbs90"
+	ExistingPlayerId = "bu2hhrti7nd0md7faom0"
+	ExistingSessionId = "bu2hhrti7nd0md7faoog"
 	RandomPlayerId = xid.New().String()
 	RandomSessionId = xid.New().String()
 	RandomRating = strconv.Itoa(1 + rand.Intn(5-1+1))
