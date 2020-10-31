@@ -3,11 +3,10 @@ package controllers
 import (
 	"ManOnTheMoonReviewService/controllers/response"
 	"ManOnTheMoonReviewService/db"
+	seed "ManOnTheMoonReviewService/db/seed/seeder"
 	"ManOnTheMoonReviewService/models"
-	"github.com/Pallinder/go-randomdata"
+	"ManOnTheMoonReviewService/util"
 	"github.com/gorilla/mux"
-	"github.com/rs/xid"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -125,40 +124,84 @@ func (r *RatingController) GetRatings(w http.ResponseWriter, req *http.Request) 
 	}
 }
 
-//*****POST Handlers*****//
-
 func (r *RatingController) CreateRating(w http.ResponseWriter, req *http.Request) {
 
-	//Get SessionId from parameter string
-	params := mux.Vars(req)
-	sessionId := params["SessionId"]
-	playerId := req.URL.Query().Get("PlayerId")
-	rating := req.URL.Query().Get("Rating")
-	comment := req.URL.Query().Get("Comment")
+	var rating models.Rating
+	err := util.ParseRequestBody(w, req, &rating)
+	if err != nil {
+		return
+	}
+
+	if rating.PlayerId == "" {
+		response.Write(w, response.Response{
+			Code:    http.StatusBadRequest,
+			Action:  "CreateRating",
+			Message: "PlayerId cannot be blank",
+			Errors:  map[string]string{"PlayerId": rating.PlayerId},
+		})
+		return
+	}
+
+	if !util.IsValidUUID(rating.PlayerId) {
+		response.Write(w, response.Response{
+			Code:    http.StatusBadRequest,
+			Action:  "CreateRating",
+			Message: "PlayerId is not a valid id",
+			Errors:  map[string]string{"PlayerId": rating.PlayerId},
+		})
+		return
+	}
+
+	if rating.SessionId == "" {
+		response.Write(w, response.Response{
+			Code:    http.StatusBadRequest,
+			Action:  "CreateRating",
+			Message: "SessionId cannot be blank",
+			Errors:  map[string]string{"SessionId": rating.SessionId},
+		})
+		return
+	}
+
+	if !util.IsValidUUID(rating.SessionId) {
+		response.Write(w, response.Response{
+			Code:    http.StatusBadRequest,
+			Action:  "CreateRating",
+			Message: "SessionId is not a valid id",
+			Errors:  map[string]string{"SessionId": rating.SessionId},
+		})
+		return
+	}
+
+	if rating.Rating == 0 {
+		response.Write(w, response.Response{
+			Code:    http.StatusBadRequest,
+			Action:  "CreateRating",
+			Message: "Rating cannot be 0",
+			Errors:  map[string]string{"Rating": "0"},
+		})
+		return
+	}
+
 	var responseData response.Response
 
 	//Check and prevent player from submitting another rating for the session if one exists, otherwise insert new rating
-	currentRating := db.SelectRating(sessionId, playerId)
+	currentRating := db.SelectRating(rating.SessionId, rating.PlayerId)
 	if !currentRating.IsEmpty() {
 		response.Write(w, response.Response{
 			Code:    http.StatusBadRequest,
 			Action:  "CreateRating",
-			Message: "Player has already submitted a rating for the session. Cannot submit more than one rating for a session. Session: " + sessionId + " Player: " + playerId + " rating: " + strconv.Itoa(currentRating.Rating) + " Comment: " + currentRating.Comment,
+			Message: "Player has already submitted a rating for the session. Cannot submit more than one rating for a session",
+			Errors: map[string]string{
+				"PlayerId":       rating.PlayerId,
+				"SessionId":      rating.SessionId,
+				"CurrentRating":  strconv.Itoa(currentRating.Rating),
+				"CurrentComment": currentRating.Comment,
+			},
 		})
 		return
 	}
 
-	ratingInt, err := strconv.Atoi(rating)
-	if err != nil {
-		response.Write(w, response.Response{
-			Code:    http.StatusBadRequest,
-			Action:  "CreateRating",
-			Message: "Invalid rating {" + rating + "}. Log: " + err.Error(),
-		})
-		return
-	}
-
-	if ratingInt < 1 || ratingInt > 5 {
+	if rating.Rating < 1 || rating.Rating > 5 {
 		response.Write(w, response.Response{
 			Code:    http.StatusBadRequest,
 			Action:  "CreateRating",
@@ -170,7 +213,13 @@ func (r *RatingController) CreateRating(w http.ResponseWriter, req *http.Request
 	timeSubmitted := time.Now()
 
 	//Insert new Player into database
-	ok, err := db.InsertNewRating(sessionId, playerId, ratingInt, comment, timeSubmitted)
+	ok, err := db.InsertNewRating(
+		rating.SessionId,
+		rating.PlayerId,
+		rating.Rating,
+		rating.Comment,
+		timeSubmitted,
+	)
 
 	if err != nil {
 		panic(err)
@@ -180,13 +229,25 @@ func (r *RatingController) CreateRating(w http.ResponseWriter, req *http.Request
 	if ok == true {
 		responseData = response.Response{
 			Code: http.StatusOK,
-			Data: "Rating Successfully submitted for Session ID: " + sessionId + " rating: " + rating + comment,
+			Data: struct {
+				Message string
+				Data    models.Rating
+			}{
+				"Rating Successfully submitted for Session",
+				rating,
+			},
 		}
 	} else {
 		responseData = response.Response{
 			Code:    http.StatusBadRequest,
 			Action:  "CreateRating",
-			Message: "Rating was unable to be submitted for Session ID: " + sessionId + " rating: " + rating + comment,
+			Message: "Failed to create rating for session",
+			Errors: map[string]string{
+				"PlayerId":  rating.PlayerId,
+				"SessionId": rating.SessionId,
+				"Rating":    strconv.Itoa(rating.Rating),
+				"Comment":   rating.Comment,
+			},
 		}
 	}
 	response.Write(w, responseData)
@@ -194,23 +255,8 @@ func (r *RatingController) CreateRating(w http.ResponseWriter, req *http.Request
 
 //GetRandomRating Simulates returning a rating. Nothing is retrieved from or committed to database.
 func (r *RatingController) GetRandomRating(w http.ResponseWriter, req *http.Request) {
-
-	//Generate random session rating data
-	sessionId := xid.New().String()
-	playerId := xid.New().String()
-	rand.Seed(time.Now().UnixNano())
-	rating := 1 + rand.Intn(5-1+1)
-	ratingComment := randomdata.Paragraph()
-
-	//Trim random comment data to be less than 512 as that is the limit of the db comment field
-	if len(ratingComment) > 511 {
-		ratingComment = ratingComment[0:511]
-	}
-
-	timeSubmitted := time.Now()
-	randomRatingData := models.Rating{PlayerId: playerId, SessionId: sessionId, Rating: rating, Comment: ratingComment, TimeSubmitted: timeSubmitted}
 	response.Write(w, response.Response{
 		Code: http.StatusOK,
-		Data: randomRatingData,
+		Data: seed.MockRatingData(),
 	})
 }

@@ -1,7 +1,7 @@
 package util
 
 import (
-	"ManOnTheMoonReviewService/models"
+	"ManOnTheMoonReviewService/controllers/response"
 	"encoding/json"
 	"github.com/google/uuid"
 	"net/http"
@@ -11,17 +11,25 @@ func NewUUID() string {
 	return uuid.New().String()
 }
 
+func IsValidUUID(u string) bool {
+	_, err := uuid.Parse(u)
+	return err == nil
+}
+
 func ParseRequestBody(w http.ResponseWriter, r *http.Request, data interface{}) error {
 	defer r.Body.Close()
 
 	d := json.NewDecoder(r.Body)
 	d.DisallowUnknownFields() // catch unwanted fields
-	var player models.Player
 
-	err := d.Decode(&player)
+	err := d.Decode(&data)
 	if err != nil {
 		// bad JSON or unrecognized json field
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		response.Write(w, response.Response{
+			Code:    http.StatusBadRequest,
+			Action:  "ParseRequestBody",
+			Message: "Unexpected error parsing request body",
+		})
 		return err
 	}
 

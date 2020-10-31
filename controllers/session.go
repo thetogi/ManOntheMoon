@@ -3,8 +3,8 @@ package controllers
 import (
 	"ManOnTheMoonReviewService/controllers/response"
 	"ManOnTheMoonReviewService/db"
-	"github.com/gorilla/mux"
-	"github.com/rs/xid"
+	"ManOnTheMoonReviewService/models"
+	"ManOnTheMoonReviewService/util"
 	"net/http"
 	"time"
 )
@@ -16,19 +16,42 @@ type SessionController struct {
 //GetSessionByIdSql returns data of a player's session by session and player Id
 func (s *SessionController) GetSession(w http.ResponseWriter, req *http.Request) {
 
-	//Get sessionId from URL path
-	params := mux.Vars(req)
-	sessionId := params["SessionId"]
+	var session models.Session
+
+	err := util.ParseRequestBody(w, req, &session)
+	if err != nil {
+		return
+	}
+	if session.SessionId == "" {
+		response.Write(w, response.Response{
+			Code:    http.StatusBadRequest,
+			Action:  "GetSession",
+			Message: "SessionId cannot be blank",
+			Errors:  map[string]string{"SessionId": session.SessionId},
+		})
+		return
+	}
+
+	if !util.IsValidUUID(session.SessionId) {
+		response.Write(w, response.Response{
+			Code:    http.StatusBadRequest,
+			Action:  "GetSession",
+			Message: "SessionId is not a valid id",
+			Errors:  map[string]string{"SessionId": session.SessionId},
+		})
+		return
+	}
 
 	//Retrieve session data by Id
-	sessionData := db.SelectSession(sessionId)
+	sessionData := db.SelectSession(session.SessionId)
 
 	//Check if session was retrieved and send response
 	if sessionData.SessionId == "" {
 		response.Write(w, response.Response{
 			Code:    http.StatusBadRequest,
 			Action:  "GetSession",
-			Message: "Could not find session using SessionId: " + sessionId,
+			Message: "Could not find session.",
+			Errors:  map[string]string{"SessionId": session.SessionId},
 		})
 	} else {
 		response.Write(w, response.Response{
@@ -40,15 +63,38 @@ func (s *SessionController) GetSession(w http.ResponseWriter, req *http.Request)
 
 func (s *SessionController) CreateSession(w http.ResponseWriter, req *http.Request) {
 
-	//Generate new session id
-	sessionId := xid.New().String()
+	var player models.Session
 
-	//Get parameters from URL query
-	playerID := req.URL.Query().Get("PlayerId")
-	timeSessionEnd, _ := time.Parse(time.RFC822, req.URL.Query().Get("TimeSessionEnd"))
+	err := util.ParseRequestBody(w, req, &player)
+	if err != nil {
+		return
+	}
+
+	if player.PlayerId == "" {
+		response.Write(w, response.Response{
+			Code:    http.StatusBadRequest,
+			Action:  "CreateSession",
+			Message: "PlayerId cannot be blank",
+			Errors:  map[string]string{"PlayerId": player.PlayerId},
+		})
+		return
+	}
+
+	if !util.IsValidUUID(player.PlayerId) {
+		response.Write(w, response.Response{
+			Code:    http.StatusBadRequest,
+			Action:  "GetPlayer",
+			Message: "PlayerId is not a valid id",
+			Errors:  map[string]string{"PlayerId": player.PlayerId},
+		})
+		return
+	}
+	var session models.Session
+	session.SessionId = util.NewUUID()
+	session.TimeSessionEnd = time.Now()
 
 	//Insert new Player into database
-	ok, err := db.InsertNewSession(sessionId, playerID, timeSessionEnd)
+	ok, err := db.InsertNewSession(session.SessionId, player.PlayerId, session.TimeSessionEnd)
 
 	//If there is an error inserting, handle it
 	if err != nil {
@@ -60,13 +106,20 @@ func (s *SessionController) CreateSession(w http.ResponseWriter, req *http.Reque
 	if ok == true {
 		responseData = response.Response{
 			Code: http.StatusOK,
-			Data: "New Session Successfully created. ID: " + sessionId,
+			Data: struct {
+				Message string
+				Data    models.Session
+			}{
+				"New Session Successfully created",
+				session,
+			},
 		}
 	} else {
 		responseData = response.Response{
 			Code:    http.StatusBadRequest,
 			Action:  "GetRating",
-			Message: "Unable to create new session. ID: " + sessionId,
+			Message: "Unable to create new session for player",
+			Errors:  map[string]string{"Player Name": player.PlayerId},
 		}
 	}
 	response.Write(w, responseData)
@@ -84,6 +137,7 @@ func (s *SessionController) GetAllSessions(w http.ResponseWriter, req *http.Requ
 			Code:    http.StatusBadRequest,
 			Action:  "GetAllSessions",
 			Message: "No sessions could be found.",
+			Errors:  nil,
 		})
 	} else {
 		//Return players data as a JSON response

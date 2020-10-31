@@ -5,9 +5,6 @@ import (
 	"ManOnTheMoonReviewService/db"
 	"ManOnTheMoonReviewService/models"
 	"ManOnTheMoonReviewService/util"
-	"encoding/json"
-	"github.com/Pallinder/go-randomdata"
-	"github.com/gorilla/mux"
 	"net/http"
 	"time"
 )
@@ -19,30 +16,43 @@ type PlayerController struct {
 //GetPlayer returns data of a single player by Id
 func (p *PlayerController) GetPlayer(w http.ResponseWriter, req *http.Request) {
 
-	d := json.NewDecoder(req.Body)
-	d.DisallowUnknownFields() // catch unwanted fields
 	var player models.Player
 
-	err := d.Decode(&player)
+	err := util.ParseRequestBody(w, req, &player)
 	if err != nil {
-		// bad JSON or unrecognized json field
-		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	//Get playerId from URL path
-	params := mux.Vars(req)
-	playerId := params["PlayerId"]
+	if player.PlayerId == "" {
+		response.Write(w, response.Response{
+			Code:    http.StatusBadRequest,
+			Action:  "GetPlayer",
+			Message: "PlayerId cannot be blank",
+			Errors:  map[string]string{"PlayerId": player.PlayerId},
+		})
+		return
+	}
+
+	if !util.IsValidUUID(player.PlayerId) {
+		response.Write(w, response.Response{
+			Code:    http.StatusBadRequest,
+			Action:  "GetPlayer",
+			Message: "PlayerId is not a valid id",
+			Errors:  map[string]string{"PlayerId": player.PlayerId},
+		})
+		return
+	}
 
 	//Retrieve player data by id
-	playerData := db.SelectPlayer(playerId)
+	playerData := db.SelectPlayer(player.PlayerId)
 
 	//Check if player was retrieved and send response
 	if playerData.PlayerId == "" {
 		response.Write(w, response.Response{
 			Code:    http.StatusBadRequest,
 			Action:  "GetPlayer",
-			Message: "Could not find player using PlayerId: " + playerId,
+			Message: "Could not find player",
+			Errors:  map[string]string{"PlayerId": player.PlayerId},
 		})
 	} else {
 		response.Write(w, response.Response{
@@ -54,17 +64,34 @@ func (p *PlayerController) GetPlayer(w http.ResponseWriter, req *http.Request) {
 
 func (p *PlayerController) CreatePlayer(w http.ResponseWriter, req *http.Request) {
 
-	//Generate new PlayerId
-	playerID := util.NewUUID()
+	var newPlayer models.Player
 
-	//Generate random Player name
-	playerName := randomdata.FullName(randomdata.RandomGender)
+	err := util.ParseRequestBody(w, req, &newPlayer)
+	if err != nil {
+		return
+	}
+
+	if newPlayer.Name == "" {
+		response.Write(w, response.Response{
+			Code:    http.StatusBadRequest,
+			Action:  "CreatePlayer",
+			Message: "Name cannot be blank",
+			Errors:  map[string]string{"Player Name": newPlayer.Name},
+		})
+		return
+	}
+
+	//Generate new PlayerId
+	newPlayer.PlayerId = util.NewUUID()
 
 	//Track Player being registered as current date and time
-	PlayerTimeRegistered := time.Now()
+	newPlayer.TimeRegistered = time.Now()
 
 	//Insert new Player into database
-	ok, err := db.InsertNewPlayer(playerID, playerName, PlayerTimeRegistered)
+	ok, err := db.InsertNewPlayer(
+		newPlayer.PlayerId,
+		newPlayer.Name,
+		newPlayer.TimeRegistered)
 
 	//If there is an error inserting, handle it
 	if err != nil {
@@ -76,13 +103,20 @@ func (p *PlayerController) CreatePlayer(w http.ResponseWriter, req *http.Request
 	if ok == true {
 		responseData = response.Response{
 			Code: http.StatusOK,
-			Data: "New Player Successfully created. ID: " + playerID,
+			Data: struct {
+				Message string
+				Data    models.Player
+			}{
+				"New Player Successfully created. ID: " + newPlayer.PlayerId,
+				newPlayer,
+			},
 		}
 	} else {
 		responseData = response.Response{
 			Code:    http.StatusBadRequest,
 			Action:  "CreatePlayer",
-			Message: "New Player was not created. ID: " + playerID,
+			Message: "Failed to create player",
+			Errors:  map[string]string{"Player Name": newPlayer.Name},
 		}
 	}
 
@@ -103,6 +137,7 @@ func (p *PlayerController) GetAllPlayers(w http.ResponseWriter, req *http.Reques
 			Code:    http.StatusBadRequest,
 			Action:  "GetAllPlayers",
 			Message: "No players could be found.",
+			Errors:  nil,
 		}
 	} else {
 		//Return players data as a JSON response

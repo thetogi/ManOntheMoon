@@ -55,24 +55,17 @@ func (s *Seeder) NewSession(playerId string) models.Session {
 	}
 }
 
-func (s *Seeder) NewRating(playerId string, sessionId string) models.Rating {
-	rating := models.Rating{
+func (*Seeder) NewRating(playerId string, sessionId string) models.Rating {
+	return models.Rating{
 		SessionId:     sessionId,
 		PlayerId:      playerId,
 		Rating:        1 + rand.Intn(5-1+1),
-		Comment:       randomdata.Paragraph(),
+		Comment:       generateComment(),
 		TimeSubmitted: time.Now(),
 	}
-
-	//Limit comment to 512 characters
-	if len(rating.Comment) > 511 {
-		rating.Comment = rating.Comment[0:511]
-	}
-
-	return rating
 }
 
-func (s *Seeder) MockPlayerData() models.Player {
+func MockPlayerData() models.Player {
 	return models.Player{
 		PlayerId:       util.NewUUID(),
 		Name:           randomdata.FullName(randomdata.RandomGender),
@@ -80,19 +73,29 @@ func (s *Seeder) MockPlayerData() models.Player {
 	}
 }
 
-func (s *Seeder) MockSessionData() models.Session {
+func MockSessionData() models.Session {
 	return models.Session{
 		SessionId: util.NewUUID(),
 		PlayerId:  util.NewUUID(),
 	}
 }
 
-func (s *Seeder) MockRatingData() models.Rating {
+func MockRatingData() models.Rating {
 	return models.Rating{
 		SessionId:     util.NewUUID(),
 		PlayerId:      util.NewUUID(),
 		Rating:        1 + rand.Intn(5-1+1),
-		Comment:       randomdata.Paragraph(),
+		Comment:       generateComment(),
 		TimeSubmitted: time.Now(),
 	}
+}
+
+func generateComment() string {
+	comment := randomdata.Paragraph()
+
+	//Keep comments under 512 characters
+	if len(comment) > 511 {
+		comment = comment[0:511]
+	}
+	return comment
 }
