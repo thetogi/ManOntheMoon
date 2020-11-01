@@ -1,16 +1,17 @@
-package controllers
+package apiV1
 
 import (
+	"ManOnTheMoonReviewService/controllers"
 	"ManOnTheMoonReviewService/controllers/response"
-	"ManOnTheMoonReviewService/db"
 	"ManOnTheMoonReviewService/models"
 	"ManOnTheMoonReviewService/util"
 	"net/http"
-	"time"
 )
 
 type PlayerController struct {
-	Controller
+	controllers.Controller
+	Player  models.Player
+	Players models.Players
 }
 
 //GetPlayer returns data of a single player by Id
@@ -43,11 +44,11 @@ func (p *PlayerController) GetPlayer(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	//Retrieve player data by id
-	playerData := db.SelectPlayer(player.PlayerId)
+	//Use model to retrieve player
+	p.Player.Retrieve(&player)
 
 	//Check if player was retrieved and send response
-	if playerData.PlayerId == "" {
+	if player.IsEmpty() {
 		response.Write(w, response.Response{
 			Code:    http.StatusBadRequest,
 			Action:  "GetPlayer",
@@ -57,7 +58,7 @@ func (p *PlayerController) GetPlayer(w http.ResponseWriter, req *http.Request) {
 	} else {
 		response.Write(w, response.Response{
 			Code: http.StatusOK,
-			Data: playerData,
+			Data: player,
 		})
 	}
 }
@@ -81,26 +82,11 @@ func (p *PlayerController) CreatePlayer(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	//Generate new PlayerId
-	newPlayer.PlayerId = util.NewUUID()
-
-	//Track Player being registered as current date and time
-	newPlayer.TimeRegistered = time.Now()
-
-	//Insert new Player into database
-	ok, err := db.InsertNewPlayer(
-		newPlayer.PlayerId,
-		newPlayer.Name,
-		newPlayer.TimeRegistered)
-
-	//If there is an error inserting, handle it
-	if err != nil {
-		panic(err)
-	}
+	ok, err := p.Player.Create(&newPlayer)
 
 	//Check if insert was successful and send response
 	var responseData response.Response
-	if ok == true {
+	if ok {
 		responseData = response.Response{
 			Code: http.StatusOK,
 			Data: struct {
@@ -128,11 +114,11 @@ func (p *PlayerController) CreatePlayer(w http.ResponseWriter, req *http.Request
 func (p *PlayerController) GetAllPlayers(w http.ResponseWriter, req *http.Request) {
 
 	//Retrieve all players from players table
-	playersData := db.SelectAllPlayers()
+	p.Players.RetrieveAll()
 	var responseData response.Response
 
 	//Check if players were found then return response
-	if len(playersData) == 0 {
+	if p.Players.Count() == 0 {
 		responseData = response.Response{
 			Code:    http.StatusBadRequest,
 			Action:  "GetAllPlayers",
@@ -143,9 +129,8 @@ func (p *PlayerController) GetAllPlayers(w http.ResponseWriter, req *http.Reques
 		//Return players data as a JSON response
 		responseData = response.Response{
 			Code: http.StatusOK,
-			Data: playersData,
+			Data: p.Players,
 		}
 	}
-
 	response.Write(w, responseData)
 }

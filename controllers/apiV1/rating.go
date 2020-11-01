@@ -1,12 +1,11 @@
-package controllers
+package apiV1
 
 import (
+	"ManOnTheMoonReviewService/controllers"
 	"ManOnTheMoonReviewService/controllers/response"
-	"ManOnTheMoonReviewService/db"
 	seed "ManOnTheMoonReviewService/db/seed/seeder"
 	"ManOnTheMoonReviewService/models"
 	"ManOnTheMoonReviewService/util"
-	"github.com/gorilla/mux"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -14,33 +13,34 @@ import (
 )
 
 type RatingController struct {
-	Controller
+	controllers.Controller
+	Rating models.Rating
 }
 
 //GetRating returns a player's session rating by their Ids
 func (r *RatingController) GetRating(w http.ResponseWriter, req *http.Request) {
 
-	//Get session from URL path and player from URL path
-	params := mux.Vars(req)
-	sessionId := params["SessionId"]
-
-	//Get playerId from URL query parameters
-	playerId := req.URL.Query().Get("PlayerId")
+	var rating models.Rating
+	err := util.ParseRequestBody(w, req, &rating)
+	if err != nil {
+		return
+	}
 
 	//Session Rating by session and player
-	ratingData := db.SelectRating(sessionId, playerId)
+	r.Rating.Retrieve(&rating)
 
 	//Check if session rating was retrieved and send response
-	if ratingData.PlayerId == "" {
+	if rating.PlayerId == "" {
 		response.Write(w, response.Response{
 			Code:    http.StatusBadRequest,
 			Action:  "GetRating",
-			Message: "Could not find rating by player for session using PlayerId: " + playerId + "and SessionId " + sessionId,
+			Message: "Could not find rating",
+			Errors:  map[string]string{"PlayerId": rating.PlayerId, "SessionId": rating.SessionId},
 		})
 	} else {
 		response.Write(w, response.Response{
 			Code: http.StatusOK,
-			Data: ratingData,
+			Data: rating,
 		})
 	}
 }
@@ -105,11 +105,16 @@ func (r *RatingController) GetRatings(w http.ResponseWriter, req *http.Request) 
 		//Convert rating as int
 		ratingAsInt, _ := strconv.Atoi(rating)
 		recentFlagAsBool, _ := strconv.ParseBool(recentFlag)
+		ratings := models.Ratings{Options: models.Options{
+			Rating:        ratingAsInt,
+			FilterOperand: ratingFilter,
+			Recent:        recentFlagAsBool,
+		}}
 
-		ratings := db.SelectAllRatings(ratingAsInt, ratingFilter, recentFlagAsBool)
+		r.Rating.RetrieveAll(&ratings)
 
 		//Check if session ratings were found then return response
-		if len(ratings) == 0 {
+		if len(ratings.Data) == 0 {
 			response.Write(w, response.Response{
 				Code:    http.StatusBadRequest,
 				Action:  "GetAllSessions",
@@ -185,7 +190,8 @@ func (r *RatingController) CreateRating(w http.ResponseWriter, req *http.Request
 	var responseData response.Response
 
 	//Check and prevent player from submitting another rating for the session if one exists, otherwise insert new rating
-	currentRating := db.SelectRating(rating.SessionId, rating.PlayerId)
+	var currentRating models.Rating
+	r.Rating.Retrieve(&currentRating)
 	if !currentRating.IsEmpty() {
 		response.Write(w, response.Response{
 			Code:    http.StatusBadRequest,
@@ -210,20 +216,9 @@ func (r *RatingController) CreateRating(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	timeSubmitted := time.Now()
+	rating.TimeSubmitted = time.Now()
 
-	//Insert new Player into database
-	ok, err := db.InsertNewRating(
-		rating.SessionId,
-		rating.PlayerId,
-		rating.Rating,
-		rating.Comment,
-		timeSubmitted,
-	)
-
-	if err != nil {
-		panic(err)
-	}
+	ok, err := r.Rating.Create(&rating)
 
 	//Check if insert was successful and send response
 	if ok == true {

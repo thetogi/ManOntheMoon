@@ -19,6 +19,8 @@ func init() {
 	//Test connection to MySQL Server
 	if err = Db.Ping(); err != nil {
 		log.Panic(err)
+	} else {
+		log.Println("Connected to MySQL")
 	}
 }
 

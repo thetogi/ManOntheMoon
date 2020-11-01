@@ -1,16 +1,17 @@
-package controllers
+package apiV1
 
 import (
+	"ManOnTheMoonReviewService/controllers"
 	"ManOnTheMoonReviewService/controllers/response"
-	"ManOnTheMoonReviewService/db"
 	"ManOnTheMoonReviewService/models"
 	"ManOnTheMoonReviewService/util"
 	"net/http"
-	"time"
 )
 
 type SessionController struct {
-	Controller
+	controllers.Controller
+	Session  models.Session
+	Sessions models.Sessions
 }
 
 //GetSessionByIdSql returns data of a player's session by session and player Id
@@ -43,10 +44,10 @@ func (s *SessionController) GetSession(w http.ResponseWriter, req *http.Request)
 	}
 
 	//Retrieve session data by Id
-	sessionData := db.SelectSession(session.SessionId)
+	s.Session.Retrieve(&session)
 
 	//Check if session was retrieved and send response
-	if sessionData.SessionId == "" {
+	if session.SessionId == "" {
 		response.Write(w, response.Response{
 			Code:    http.StatusBadRequest,
 			Action:  "GetSession",
@@ -56,50 +57,41 @@ func (s *SessionController) GetSession(w http.ResponseWriter, req *http.Request)
 	} else {
 		response.Write(w, response.Response{
 			Code: http.StatusOK,
-			Data: sessionData,
+			Data: session,
 		})
 	}
 }
 
 func (s *SessionController) CreateSession(w http.ResponseWriter, req *http.Request) {
 
-	var player models.Session
+	var session models.Session
 
-	err := util.ParseRequestBody(w, req, &player)
+	err := util.ParseRequestBody(w, req, &session)
 	if err != nil {
 		return
 	}
 
-	if player.PlayerId == "" {
+	if session.PlayerId == "" {
 		response.Write(w, response.Response{
 			Code:    http.StatusBadRequest,
 			Action:  "CreateSession",
 			Message: "PlayerId cannot be blank",
-			Errors:  map[string]string{"PlayerId": player.PlayerId},
+			Errors:  map[string]string{"PlayerId": session.PlayerId},
 		})
 		return
 	}
 
-	if !util.IsValidUUID(player.PlayerId) {
+	if !util.IsValidUUID(session.PlayerId) {
 		response.Write(w, response.Response{
 			Code:    http.StatusBadRequest,
 			Action:  "GetPlayer",
 			Message: "PlayerId is not a valid id",
-			Errors:  map[string]string{"PlayerId": player.PlayerId},
+			Errors:  map[string]string{"PlayerId": session.PlayerId},
 		})
 		return
 	}
-	var session models.Session
-	session.SessionId = util.NewUUID()
-	session.TimeSessionEnd = time.Now()
 
-	//Insert new Player into database
-	ok, err := db.InsertNewSession(session.SessionId, player.PlayerId, session.TimeSessionEnd)
-
-	//If there is an error inserting, handle it
-	if err != nil {
-		panic(err.Error())
-	}
+	ok, err := s.Session.Create(&session)
 
 	//Check if insert was successful and send response
 	var responseData response.Response
@@ -118,8 +110,8 @@ func (s *SessionController) CreateSession(w http.ResponseWriter, req *http.Reque
 		responseData = response.Response{
 			Code:    http.StatusBadRequest,
 			Action:  "GetRating",
-			Message: "Unable to create new session for player",
-			Errors:  map[string]string{"Player Name": player.PlayerId},
+			Message: "Unable to create new session",
+			Errors:  map[string]string{"Player Id": session.PlayerId},
 		}
 	}
 	response.Write(w, responseData)
@@ -129,10 +121,11 @@ func (s *SessionController) CreateSession(w http.ResponseWriter, req *http.Reque
 func (s *SessionController) GetAllSessions(w http.ResponseWriter, req *http.Request) {
 
 	//Retrieve all sessions from sessions table
-	sessionsData := db.SelectAllSessions()
+	var sessions models.Sessions
+	s.Session.RetrieveAll(&sessions)
 
 	//Check if sessions were found then return response
-	if len(sessionsData) == 0 {
+	if len(sessions) == 0 {
 		response.Write(w, response.Response{
 			Code:    http.StatusBadRequest,
 			Action:  "GetAllSessions",
@@ -143,7 +136,7 @@ func (s *SessionController) GetAllSessions(w http.ResponseWriter, req *http.Requ
 		//Return players data as a JSON response
 		response.Write(w, response.Response{
 			Code: http.StatusOK,
-			Data: sessionsData,
+			Data: sessions,
 		})
 	}
 }

@@ -12,11 +12,9 @@ import (
 )
 
 func main() {
-	//TODO Make sure comments are formatted per Go Doc
 
-	//TODO Add JWT token authentication
 	//Add API Endpoints/Routes to be handled
-	mux := route.GetRoutes()
+	mux := route.SetRoutes()
 
 	server := &http.Server{
 		Handler:      mux,
