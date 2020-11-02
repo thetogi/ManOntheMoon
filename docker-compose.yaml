@@ -7,4 +7,40 @@ services:
     ports:
       - "8080:8080"
     env_file:
-      - dbConfig.env.dev
+      - db/db.dev.env
+      - app.dev.env
+    container_name: "man-on-the-moon"
+    depends_on:
+      - db
+      - redis
+    links:
+      - db
+      - redis
+    networks:
+      - back
+
+  db:
+    image: mysql:8.0
+    restart: always
+    ports:
+      - "3306:3306"
+    environment:
+     - MYSQL_ROOT_PASSWORD=Rand0mN3$$i5G0oD!
+    volumes:
+      - ./db/seed/data:/docker-entrypoint-initdb.d
+      - ./mysql:/var/lib/mysql
+    networks:
+      - back
+
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - back
+
+networks:
+  back:
+    driver: bridge
+    name: "back"
+

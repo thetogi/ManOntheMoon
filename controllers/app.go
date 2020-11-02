@@ -12,11 +12,6 @@ type AppController struct {
 }
 
 func (a *AppController) Home(w http.ResponseWriter, req *http.Request) {
-	if req.URL.Path != "/" {
-		w.WriteHeader(404)
-		w.Write([]byte("Not Found !!!"))
-		return
-	}
 	response.Write(w, response.Response{
 		Code: http.StatusOK,
 		Data: "Welcome to Man on the Moon homepage!",

@@ -45,7 +45,7 @@ This service has several RESTful API endpoints that allow:
 
   `git clone <path-to-repo>`
 
-  2. If you haven't already, install MySQL Server 8.0 on your host machine. Using a user with create permissions, run the provided script `ManOnTheMoonPopulate.sql` to build the database structures and populate sample data. The script is found in the root directory of the go project.
+  2. If you haven't already, install MySQL Server 8.0 on your host machine. Using a user with create permissions, run the provided script `sql_dump.sql` to build the database structures and populate sample data. The script is found in the root directory of the go project.
 
   3. Update the USER and PASSWORD environment variables in `dbConfig.env.dev` in the root directory of the go project with a user from you instance of MySQL with read and write permissions. You will not be able to connect to MySQL if this step isn't done.
 

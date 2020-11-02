@@ -5,22 +5,27 @@ import (
 	"github.com/go-redis/redis/v8"
 	"log"
 	"os"
+	"strconv"
 )
 
 var RCache *redis.Client
 
 func init() {
 	// Initialize the redis connection to a redis instance running on your local machine
+
+	address := os.Getenv("REDIS_ADDRESS")
+	port := os.Getenv("REDIS_PORT")
+	database, _ := strconv.Atoi(os.Getenv("REDIS_DB"))
 	password := os.Getenv("REDIS_PASSWORD")
 	RCache = redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
+		Addr:     address + ":" + port,
 		Password: password, // no password set
-		DB:       0,        // use default DB
+		DB:       database, // use default DB
 	})
 
 	err := ping(RCache)
 	if err != nil {
-		panic(err)
+		panic("REDIS: " + err.Error())
 	} else {
 		log.Println("Connected to Redis")
 	}

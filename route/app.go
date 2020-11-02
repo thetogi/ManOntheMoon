@@ -6,6 +6,7 @@ import (
 	"ManOnTheMoonReviewService/controllers/apiV2"
 	"ManOnTheMoonReviewService/controllers/auth"
 	"github.com/gorilla/mux"
+	"net/http"
 )
 
 func SetApplicationRoutes(router *mux.Router) *mux.Router {
@@ -15,8 +16,11 @@ func SetApplicationRoutes(router *mux.Router) *mux.Router {
 	sc := apiV1.SessionController{}
 	auc := auth.AuthenticationController{}
 
+	router.NotFoundHandler = http.HandlerFunc(ac.NotFound)
+
 	apiRouterV1 := router.PathPrefix("/api/v1").Subrouter()
-	apiRouterV2 := router.PathPrefix("/api/v2").Subrouter()
+	apiRouterV1Secure := router.PathPrefix("/api/v1/").Subrouter()
+	apiRouterV2 := router.PathPrefix("/api/v2/").Subrouter()
 
 	rc := apiV1.RatingController{}
 	rc2 := apiV2.RatingController{}
@@ -37,10 +41,12 @@ func SetApplicationRoutes(router *mux.Router) *mux.Router {
 	apiRouterV1.HandleFunc("/Sessions/", sc.GetAllSessions).Methods("GET")
 
 	//Rating routes
-	apiRouterV1.Use(auc.JWTValidateMiddleware)
-	apiRouterV1.HandleFunc("/Rating", rc.GetRating).Methods("GET")
 	apiRouterV1.HandleFunc("/Rating", rc.CreateRating).Methods("POST")
-	apiRouterV1.HandleFunc("/Ratings/", rc.GetRatings).Methods("GET")
+
+	//Secured routes
+	apiRouterV1Secure.Use(auc.JWTValidateMiddleware)
+	apiRouterV1Secure.HandleFunc("/Rating", rc.GetRating).Methods("GET")
+	apiRouterV1Secure.HandleFunc("/Ratings/", rc.GetRatings).Methods("GET")
 
 	return router
 }
