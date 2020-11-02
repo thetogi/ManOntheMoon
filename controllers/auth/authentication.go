@@ -38,15 +38,15 @@ func (a *AuthenticationController) Login(w http.ResponseWriter, req *http.Reques
 		// Create token
 		token := jwt.New(jwt.SigningMethodHS256)
 		secret := os.Getenv("JWT_SECRET")
-		// Set claims
-		// This is the information which frontend can use
-		// The backend can also decode the token and get admin etc.
+
+		// Set claims. This information could be used for additional validation of user roles, etc.
 		claims := token.Claims.(jwt.MapClaims)
 		claims["name"] = "Jon Doe"
 		claims["admin"] = true
 		claims["exp"] = time.Now().Add(time.Hour * 72).Unix()
+
 		// Generate encoded token and send it as response.
-		// The signing string should be secret (a generated UUID          works too)
+		// The signing string should be secret (a generated UUID works too)
 		t, err := token.SignedString([]byte(secret))
 		if err != nil {
 			return
@@ -133,6 +133,11 @@ func (a *AuthenticationController) JWTValidateMiddleware(next http.Handler) http
 					return []byte(secret), nil
 				})
 				if error != nil {
+					v, _ := error.(*jwt.ValidationError)
+					if v.Errors == jwt.ValidationErrorExpired {
+						//Todo: Implement refresh logic if desired.
+					}
+
 					response.Write(w, response.Response{
 						Code:    http.StatusBadRequest,
 						Action:  "Authentication",
