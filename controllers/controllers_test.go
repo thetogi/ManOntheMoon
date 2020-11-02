@@ -1,75 +1,82 @@
 package controllers
 
 import (
-	"ManOnTheMoonReviewService/db"
+	"ManOnTheMoonReviewService/controllers/response"
+	seed "ManOnTheMoonReviewService/db/seed/seeder"
+	"ManOnTheMoonReviewService/models"
+	"bytes"
 	"encoding/json"
-	"github.com/Pallinder/go-randomdata"
+	"fmt"
 	"github.com/gorilla/mux"
-	"github.com/rs/xid"
 	"github.com/stretchr/testify/assert"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 )
 
 var ExistingPlayerId string
 var ExistingSessionId string
-var RandomPlayerId string
-var RandomSessionId string
-var RandomRating string
-var RandomComment string
 
 func init() {
 	ExistingPlayerId = "bu2hhrti7nd0md7faom0"
 	ExistingSessionId = "bu2hhrti7nd0md7faoog"
-	RandomPlayerId = xid.New().String()
-	RandomSessionId = xid.New().String()
-	RandomRating = strconv.Itoa(1 + rand.Intn(5-1+1))
-	RandomComment = randomdata.Paragraph()
 }
 
-func TestGetRatingRandom(t *testing.T) {
+func TestRatingController_GetRandomRating(t *testing.T) {
 
-	req, err := http.NewRequest("GET", "/GameSession/Rating", nil)
-	checkError(err, t)
-
+	req, err := http.NewRequest("GET", "/api/v1/Random/Rating", nil)
 	rr := httptest.NewRecorder()
+	rc := RatingController{}
 
-	http.HandlerFunc(GetRatingRandomForTesting).ServeHTTP(rr, req)
+	http.HandlerFunc(rc.GetRandomRating).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("Status code differs. Expected %d. Got %d", http.StatusOK, status)
 	}
 
-	var sr db.SessionRating
+	var r response.Response
 
-	err = json.Unmarshal(rr.Body.Bytes(), &sr)
+	err = json.Unmarshal(rr.Body.Bytes(), &r)
 	if err != nil {
 		panic(err)
 	}
 
-	if sr.SessionId == "" || sr.PlayerId == "" {
+	receivedDTO := response.Response{}
+
+	err = json.Unmarshal(rr.Body.Bytes(), &receivedDTO)
+	if err != nil {
+		panic(err)
+	}
+
+	rating := receivedDTO.Data.(map[string]interface{})
+	if rating["SessionId"] == "" || rating["PlayerId"] == "" {
 		t.Errorf("No sessionId or PlayerId was generated")
 	}
 }
 
 func TestGetPlayerByIdSql(t *testing.T) {
+	bodyRaw := "{\"playerId\":\"2675e3f6-22db-4253-8d5c-eb7d8cfa333c\"}"
 
-	req, err := http.NewRequest("GET", "/Player/"+ExistingPlayerId, nil)
-	checkError(err, t)
-
+	b, err := json.Marshal(bodyRaw)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	r := bytes.NewReader(b)
+	req, err := http.NewRequest("GET", "/api/v1/Player/", r)
+	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 	//Use SetURLVars for tests so that the handler will correctly retrieve the URL path parameters
 	req = mux.SetURLVars(req, map[string]string{"PlayerId": ExistingPlayerId})
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(GetPlayerByIdSql).ServeHTTP(rr, req)
+	pc := PlayerController{}
+	http.HandlerFunc(pc.GetPlayer).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("Status code differs. Expected %d. Got %d", http.StatusOK, status)
 	}
 
-	var p db.Player
+	var p models.Player
 
 	err = json.Unmarshal(rr.Body.Bytes(), &p)
 	if err != nil {
@@ -86,17 +93,16 @@ func TestGetPlayerByIdSql(t *testing.T) {
 func TestGetAllPlayersSql(t *testing.T) {
 
 	req, err := http.NewRequest("GET", "/Players/", nil)
-	checkError(err, t)
 
 	rr := httptest.NewRecorder()
-
-	http.HandlerFunc(GetAllPlayersSql).ServeHTTP(rr, req)
+	pc := PlayerController{}
+	http.HandlerFunc(pc.GetAllPlayers).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("Status code differs. Expected %d. Got %d", http.StatusOK, status)
 	}
 
-	var p []db.Player
+	var p models.Players
 
 	err = json.Unmarshal(rr.Body.Bytes(), &p)
 	if err != nil {
@@ -111,19 +117,18 @@ func TestGetAllPlayersSql(t *testing.T) {
 func TestGetSessionByIdSql(t *testing.T) {
 
 	req, err := http.NewRequest("GET", "/Session/"+ExistingSessionId, nil)
-	checkError(err, t)
 
 	//Use SetURLVars for tests so that the handler will correctly retrieve the URL path parameters
 	req = mux.SetURLVars(req, map[string]string{"SessionId": ExistingSessionId})
 	rr := httptest.NewRecorder()
-
-	http.HandlerFunc(GetSessionByIdSql).ServeHTTP(rr, req)
+	sc := SessionController{}
+	http.HandlerFunc(sc.GetSession).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("Status code differs. Expected %d. Got %d", http.StatusOK, status)
 	}
 
-	var s db.Session
+	var s models.Session
 
 	err = json.Unmarshal(rr.Body.Bytes(), &s)
 	if err != nil {
@@ -140,17 +145,16 @@ func TestGetSessionByIdSql(t *testing.T) {
 func TestGetAllSessionsSql(t *testing.T) {
 
 	req, err := http.NewRequest("GET", "/Sessions/", nil)
-	checkError(err, t)
 
 	rr := httptest.NewRecorder()
-
-	http.HandlerFunc(GetAllPlayersSql).ServeHTTP(rr, req)
+	sc := SessionController{}
+	http.HandlerFunc(sc.GetAllSessions).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("Status code differs. Expected %d. Got %d", http.StatusOK, status)
 	}
 
-	var p []db.Session
+	var p models.Sessions
 
 	err = json.Unmarshal(rr.Body.Bytes(), &p)
 	if err != nil {
@@ -165,7 +169,6 @@ func TestGetAllSessionsSql(t *testing.T) {
 func TestGetSessionRatingBySessionIdSql(t *testing.T) {
 
 	req, err := http.NewRequest("GET", "/Session/"+ExistingSessionId+"/Rating", nil)
-	checkError(err, t)
 
 	//Use SetURLVars for tests so that the handler will correctly retrieve the URL path parameters
 	req = mux.SetURLVars(req, map[string]string{"SessionId": ExistingSessionId})
@@ -176,45 +179,45 @@ func TestGetSessionRatingBySessionIdSql(t *testing.T) {
 	req.URL.RawQuery = q.Encode()
 
 	rr := httptest.NewRecorder()
-	http.HandlerFunc(GetSessionRatingBySessionIdSql).ServeHTTP(rr, req)
+	rc := RatingController{}
+	http.HandlerFunc(rc.GetRating).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("Status code differs. Expected %d. Got %d", http.StatusOK, status)
 	}
 
-	var sr db.SessionRating
+	var r models.Rating
 
-	err = json.Unmarshal(rr.Body.Bytes(), &sr)
+	err = json.Unmarshal(rr.Body.Bytes(), &r)
 	if err != nil {
 		panic(err)
 	}
 
-	if sr.SessionId == "" || sr.PlayerId == "" {
+	if r.SessionId == "" || r.PlayerId == "" {
 		t.Errorf("No sessionId or PlayerId was generated")
 	}
 }
 
-func TestGetAllSessionRatingsSql(t *testing.T) {
+func TestGetAllRatingsSql(t *testing.T) {
 
 	req, err := http.NewRequest("GET", "/Session/Ratings/", nil)
-	checkError(err, t)
 
 	rr := httptest.NewRecorder()
-
-	http.HandlerFunc(GetAllSessionRatingsSql).ServeHTTP(rr, req)
+	rc := RatingController{}
+	http.HandlerFunc(rc.GetRatings).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("Status code differs. Expected %d. Got %d", http.StatusOK, status)
 	}
 
-	var p []db.SessionRating
+	var r models.Ratings
 
-	err = json.Unmarshal(rr.Body.Bytes(), &p)
+	err = json.Unmarshal(rr.Body.Bytes(), &r.Data)
 	if err != nil {
 		panic(err)
 	}
 
-	if len(p) == 0 {
+	if len(r.Data) == 0 {
 		t.Errorf("Error retrieving Ratings.")
 	}
 }
@@ -222,91 +225,83 @@ func TestGetAllSessionRatingsSql(t *testing.T) {
 func TestPostPlayerCreateSql(t *testing.T) {
 
 	req, err := http.NewRequest("POST", "/Player/Create", nil)
-	checkError(err, t)
 
 	rr := httptest.NewRecorder()
-
-	http.HandlerFunc(PostPlayerCreateSql).ServeHTTP(rr, req)
+	pc := PlayerController{}
+	http.HandlerFunc(pc.CreatePlayer).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("Status code differs. Expected %d. Got %d", http.StatusOK, status)
 	}
 
-	var response Response
+	var response response.Response
 
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	if err != nil {
 		panic(err)
 	}
 
-	if response.Status == "" || response.Status != "OK" {
+	if response.Code != http.StatusOK {
 		//TODO handle blank message
-		t.Errorf("Error creating new player: " + response.Message)
+		t.Errorf("Error creating new player: " + response.Message + " StatusCode: " + strconv.Itoa(response.Code))
 	}
 }
 
 func TestPostSessionCreateSql(t *testing.T) {
 
 	req, err := http.NewRequest("POST", "/Session/Create", nil)
-	checkError(err, t)
 
 	q := req.URL.Query()
 	q.Add("PlayerId", ExistingPlayerId)
 	req.URL.RawQuery = q.Encode()
 	rr := httptest.NewRecorder()
-
-	http.HandlerFunc(PostSessionCreateSql).ServeHTTP(rr, req)
+	sc := SessionController{}
+	http.HandlerFunc(sc.CreateSession).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("Status code differs. Expected %d. Got %d", http.StatusOK, status)
 	}
 
-	var response Response
+	var response response.Response
 
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	if err != nil {
 		panic(err)
 	}
 
-	if response.Status == "" || response.Status != "OK" {
+	if response.Code != http.StatusOK {
 		//TODO handle blank message
-		t.Errorf("Error creating new session: " + response.Message)
+		t.Errorf("Error creating new session: " + response.Message + " StatusCode: " + strconv.Itoa(response.Code))
 	}
 }
 
 func TestPostSessionRatingCreateSql(t *testing.T) {
 
-	req, err := http.NewRequest("POST", "/Session/"+RandomSessionId+"/CreateRating", nil)
-	checkError(err, t)
-
-	q := req.URL.Query()
-	q.Add("PlayerId", RandomPlayerId)
-	q.Add("Rating", RandomRating)
-	q.Add("Comment", RandomComment)
-	req.URL.RawQuery = q.Encode()
+	newRating := seed.MockRatingData()
+	b, err := json.Marshal(newRating)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
+	req, err := http.NewRequest("POST", "/api/v1/Rating", strings.NewReader(string(b)))
 	rr := httptest.NewRecorder()
-
-	http.HandlerFunc(PostSessionRatingCreateSql).ServeHTTP(rr, req)
+	rc := RatingController{}
+	http.HandlerFunc(rc.CreateRating).ServeHTTP(rr, req)
 
 	if status := rr.Code; status != http.StatusOK {
 		t.Errorf("Status code differs. Expected %d. Got %d", http.StatusOK, status)
 	}
 
-	var response Response
+	var response response.Response
 
 	err = json.Unmarshal(rr.Body.Bytes(), &response)
 	if err != nil {
 		panic(err)
 	}
 
-	if (response.Status == "" || response.Status != "OK") && response.Status != "FAILED_DUPLICATE" {
-		//TODO handle blank message
-		t.Errorf("Error creating new session rating: " + response.Message)
-	}
-}
-
-func checkError(err error, t *testing.T) {
-	if err != nil {
-		t.Errorf("An error occurred. %v", err)
+	if response.Code != http.StatusOK {
+		{
+			//TODO handle blank message
+			t.Errorf("Error creating new session rating: " + response.Message + " StatusCode: " + strconv.Itoa(response.Code))
+		}
 	}
 }

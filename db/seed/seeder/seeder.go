@@ -81,13 +81,16 @@ func MockSessionData() models.Session {
 }
 
 func MockRatingData() models.Rating {
-	return models.Rating{
+	dan := models.Rating{
 		SessionId:     util.NewUUID(),
 		PlayerId:      util.NewUUID(),
 		Rating:        1 + rand.Intn(5-1+1),
 		Comment:       generateComment(),
 		TimeSubmitted: time.Now(),
 	}
+
+	return dan
+
 }
 
 func generateComment() string {

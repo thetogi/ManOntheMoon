@@ -1,7 +1,6 @@
-package apiV1
+package controllers
 
 import (
-	"ManOnTheMoonReviewService/controllers"
 	"ManOnTheMoonReviewService/controllers/response"
 	"ManOnTheMoonReviewService/models"
 	"ManOnTheMoonReviewService/util"
@@ -9,7 +8,7 @@ import (
 )
 
 type SessionController struct {
-	controllers.Controller
+	Controller
 	Session  models.Session
 	Sessions models.Sessions
 }

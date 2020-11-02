@@ -1,7 +1,6 @@
-package apiV1
+package controllers
 
 import (
-	"ManOnTheMoonReviewService/controllers"
 	"ManOnTheMoonReviewService/controllers/response"
 	"ManOnTheMoonReviewService/models"
 	"ManOnTheMoonReviewService/util"
@@ -9,7 +8,7 @@ import (
 )
 
 type PlayerController struct {
-	controllers.Controller
+	Controller
 	Player  models.Player
 	Players models.Players
 }

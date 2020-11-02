@@ -11,7 +11,6 @@ import (
 type User struct {
 	Password string `json:"password"`
 	Username string `json:"username"`
-	UserId   string `json:"userId"`
 }
 
 func (u *User) Logout(c context.Context, token *jwt.Token) error {

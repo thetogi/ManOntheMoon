@@ -1,7 +1,6 @@
-package apiV1
+package controllers
 
 import (
-	"ManOnTheMoonReviewService/controllers"
 	"ManOnTheMoonReviewService/controllers/response"
 	seed "ManOnTheMoonReviewService/db/seed/seeder"
 	"ManOnTheMoonReviewService/models"
@@ -13,7 +12,7 @@ import (
 )
 
 type RatingController struct {
-	controllers.Controller
+	Controller
 	Rating models.Rating
 }
 
@@ -250,6 +249,15 @@ func (r *RatingController) CreateRating(w http.ResponseWriter, req *http.Request
 
 //GetRandomRating Simulates returning a rating. Nothing is retrieved from or committed to database.
 func (r *RatingController) GetRandomRating(w http.ResponseWriter, req *http.Request) {
+	rating := seed.MockRatingData()
+	response.Write(w, response.Response{
+		Code: http.StatusOK,
+		Data: rating,
+	})
+}
+
+//GetRandomRating Simulates returning a rating. Nothing is retrieved from or committed to database.
+func (r *RatingController) GetRandomRating2(w http.ResponseWriter, req *http.Request) {
 	response.Write(w, response.Response{
 		Code: http.StatusOK,
 		Data: seed.MockRatingData(),
